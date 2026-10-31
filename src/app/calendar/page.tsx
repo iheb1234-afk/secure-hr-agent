@@ -26,36 +26,36 @@ export default function Calendar() {
 
   const days = events.reduce<Record<string, Ev[]>>((acc, e) => { (acc[dayKey(e.starts_at)] ||= []).push(e); return acc; }, {});
   const style = (e: Ev) =>
-    e.kind === "busy" ? "border-slate-200 bg-slate-100 text-slate-500"
-      : e.status === "proposed" ? "border-amber-300 bg-amber-50 text-amber-800"
-      : "border-green-300 bg-green-50 text-green-800";
+    e.kind === "busy" ? "border-l-ink-3/40 bg-wash text-ink-2"
+      : e.status === "proposed" ? "border-l-ai bg-ai-soft text-ai outline-1 outline-dashed outline-ai/40 -outline-offset-1"
+      : "border-l-human bg-human-soft text-human";
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">Recruiter calendar (next week)</h1>
-        <p className="text-sm text-slate-500">
-          Interview slots are computed from this calendar, not by the AI. Approved invites place <span className="text-amber-700">holds</span>; when the candidate answers, the recruiter confirms the slot they picked and the other holds are released.
+    <div className="space-y-8">
+      <header>
+        <h1 className="page-title">Interviews next week</h1>
+        <p className="page-lede">
+          Free slots are computed from this calendar by plain code, not by the AI, so it can&apos;t invent a time. An approved invite places holds; when the candidate answers, you confirm the slot they picked and the other holds are released.
         </p>
+      </header>
+      <div className="flex flex-wrap gap-4 text-xs text-ink-2">
+        <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded-sm border-l-2 border-l-ink-3/40 bg-wash" />Busy</span>
+        <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded-sm border-l-2 border-l-ai bg-ai-soft outline-1 outline-dashed outline-ai/40" />Hold, waiting for the candidate</span>
+        <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded-sm border-l-2 border-l-human bg-human-soft" />Confirmed by you</span>
       </div>
-      <div className="flex gap-3 text-xs">
-        <span className="rounded border border-slate-200 bg-slate-100 px-2">Busy</span>
-        <span className="rounded border border-amber-300 bg-amber-50 px-2">Proposed hold</span>
-        <span className="rounded border border-green-300 bg-green-50 px-2">Confirmed interview</span>
-      </div>
-      {!events.length && <p className="rounded-xl border bg-white p-4 text-sm text-slate-500">No events. Run supabase/migration_02_scheduling.sql to load the demo calendar.</p>}
-      <div className="grid gap-3 md:grid-cols-5">
+      {!events.length && <p className="panel px-5 py-10 text-center text-sm text-ink-2">No events. Run supabase/migration_02_scheduling.sql to load the demo calendar.</p>}
+      <div className="grid gap-px overflow-hidden rounded-[10px] border bg-line md:grid-cols-5">
         {Object.entries(days).map(([day, evs]) => (
-          <div key={day} className="rounded-xl border bg-white p-3">
-            <h2 className="mb-2 text-sm font-semibold">{day}</h2>
+          <div key={day} className="bg-white p-3">
+            <h2 className="mb-3 text-sm font-semibold">{day}</h2>
             <div className="space-y-2">
               {evs.map((e) => (
-                <div key={e.id} className={`rounded border p-2 text-xs ${style(e)}`}>
-                  <b>{fmt(e.starts_at)}–{fmt(e.ends_at)}</b>
-                  <div>{e.title}</div>
+                <div key={e.id} className={`rounded-md border-l-[3px] px-2.5 py-2 text-xs ${style(e)}`}>
+                  <div className="font-semibold tabular-nums">{fmt(e.starts_at)}–{fmt(e.ends_at)}</div>
+                  <div className="mt-0.5">{e.title}</div>
                   {e.kind === "interview" && e.status === "proposed" && (
-                    <button onClick={() => confirm(e.id)} disabled={!!busy} className="mt-1 rounded bg-green-600 px-2 py-0.5 text-white">
-                      Candidate picked this ✓
+                    <button onClick={() => confirm(e.id)} disabled={!!busy} className="btn btn-sm btn-approve mt-2 w-full">
+                      Candidate picked this
                     </button>
                   )}
                 </div>

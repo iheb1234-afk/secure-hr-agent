@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Job = { id: string; title: string; description: string; criteria: string[] };
@@ -9,13 +10,19 @@ type Cand = {
   hidden_text: string | null; anonymized_text: string;
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  new: "bg-slate-100 text-slate-700", ranked: "bg-blue-100 text-blue-700", flagged: "bg-red-100 text-red-700",
-  shortlisted: "bg-green-100 text-green-700", rejected: "bg-slate-200 text-slate-500", review: "bg-amber-100 text-amber-700",
+// who acted last: amber = AI output waiting for a human, green = a human decided
+const STATUS: Record<string, { label: string; cls: string }> = {
+  new: { label: "Not ranked yet", cls: "bg-wash text-ink-2" },
+  ranked: { label: "AI scored, your call", cls: "bg-ai-soft text-ai" },
+  flagged: { label: "Quarantined", cls: "bg-block-soft text-block" },
+  shortlisted: { label: "Shortlisted by you", cls: "bg-human-soft text-human" },
+  rejected: { label: "Rejected by you", cls: "bg-wash text-ink-3" },
+  review: { label: "Info requested", cls: "bg-human-soft text-human" },
 };
 
 export default function Dashboard() {
   const sb = supabaseBrowser();
+  const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobId, setJobId] = useState("");
   const [cands, setCands] = useState<Cand[]>([]);
@@ -65,8 +72,8 @@ export default function Dashboard() {
     const flagged = results.filter((r) => r.flagged).length;
     const failed = results.filter((r) => !r.ok);
     const note = results.find((r) => r.note)?.note;
-    setMsg(`${note ? `⚠️ ${note} · ` : ""}${results.length - failed.length} ingested · ${flagged} flagged 🚩${failed.length ? ` · ${failed.length} rejected: ${failed.map((f) => `${f.file} (${f.error})`).join(", ")}` : ""}`);
-    setBusy(""); loadCands();
+    setMsg(`${note ? `${note}. ` : ""}${results.length - failed.length} resumes scanned, ${flagged} quarantined.${failed.length ? ` ${failed.length} refused: ${failed.map((f) => `${f.file} (${f.error})`).join(", ")}` : ""}`);
+    setBusy(""); loadCands(); router.refresh();
   }
 
   async function rank() {
@@ -90,7 +97,7 @@ export default function Dashboard() {
     const res = await fetch(`/api/candidates/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
     const j = await res.json();
     setMsg(j.warning ?? (action === "release" ? "Released for ranking (visible text only)." : "Decision saved. Draft reply waiting in the Approval queue."));
-    setBusy(""); loadCands();
+    setBusy(""); loadCands(); router.refresh();
   }
 
   async function reset() {
@@ -99,93 +106,176 @@ export default function Dashboard() {
     const res = await fetch("/api/jobs/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobId }) });
     const j = await res.json();
     setMsg(res.ok ? `Reset: ${j.deleted} candidates deleted.` : j.error);
-    setBusy(""); loadCands();
+    setBusy(""); loadCands(); router.refresh();
   }
 
   const job = jobs.find((j) => j.id === jobId);
   const flagged = cands.filter((c) => c.status === "flagged");
   const ranked = cands.filter((c) => c.score !== null && c.status !== "flagged").sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const pending = cands.filter((c) => c.status === "new");
+  const decided = cands.filter((c) => ["shortlisted", "rejected", "review"].includes(c.status)).length;
+  const steps = [
+    { n: cands.length, label: "Scanned for hidden text and manipulation" },
+    { n: flagged.length, label: "Quarantined, never shown to the ranking AI", tone: "text-block" },
+    { n: ranked.length, label: "Scored by the AI on anonymized text", tone: "text-ai" },
+    { n: decided, label: "Decided by a human", tone: "text-human" },
+  ];
 
   return (
-    <div className="space-y-6">
-      <section className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4">
-        <div>
-          <label className="text-xs font-medium text-slate-500">Job offer</label>
-          <select className="block min-w-72 rounded border px-3 py-2" value={jobId} onChange={(e) => setJobId(e.target.value)}>
-            {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
-          </select>
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-end gap-x-6 gap-y-4">
+        <div className="min-w-0 flex-1">
+          <label htmlFor="job" className="text-sm text-ink-3">Screening for</label>
+          {jobs.length ? (
+            <select id="job" className="-ml-1 block max-w-full cursor-pointer truncate rounded-md bg-transparent py-0.5 pr-2 text-[1.75rem] font-semibold leading-tight text-ink hover:bg-wash focus:outline-none"
+              value={jobId} onChange={(e) => setJobId(e.target.value)}>
+              {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
+            </select>
+          ) : <h1 className="page-title">No job offer yet</h1>}
         </div>
-        {!jobs.length && <button onClick={seed} disabled={!!busy} className="rounded bg-slate-800 px-3 py-2 text-white">Create demo job offers</button>}
-        {job && (
-          <>
-            <label className={`cursor-pointer rounded bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700 ${busy ? "pointer-events-none opacity-50" : ""}`}>
-              Upload resumes (PDF/TXT)
-              <input type="file" multiple accept=".pdf,.txt" className="hidden" onChange={(e) => upload(e.target.files)} />
+        <div className="flex flex-wrap items-center gap-2">
+          {!jobs.length && <button onClick={seed} disabled={!!busy} className="btn btn-primary">Create demo job offers</button>}
+          {job && cands.length > 0 && <button onClick={reset} disabled={!!busy} className="btn btn-ghost text-ink-3">Reset demo</button>}
+          {job && (
+            <label className={`btn btn-ghost cursor-pointer ${busy ? "pointer-events-none opacity-40" : ""}`}>
+              Upload resumes
+              <input type="file" multiple accept=".pdf,.txt" className="sr-only" onChange={(e) => upload(e.target.files)} />
             </label>
-            <button onClick={rank} disabled={!!busy || !pending.length} className="rounded bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-700 disabled:opacity-40">
-              Rank {pending.length} resumes with AI
+          )}
+          {job && (
+            <button onClick={rank} disabled={!!busy || !pending.length} className="btn btn-primary">
+              Rank {pending.length} with AI
             </button>
-            {cands.length > 0 && <button onClick={reset} disabled={!!busy} className="ml-auto rounded border px-3 py-2 text-xs text-slate-500 hover:bg-slate-100">Reset demo</button>}
-          </>
+          )}
+        </div>
+        {job && (
+          <div className="flex w-full flex-wrap gap-1.5">
+            {job.criteria.map((c) => <span key={c} className="chip border bg-white font-normal text-ink-2">{c}</span>)}
+          </div>
         )}
-        {msg && <p className="w-full text-sm text-slate-600">{busy && "⏳ "}{msg}</p>}
-      </section>
+        {msg && (
+          <p role="status" className="flex w-full items-center gap-2 rounded-md bg-white px-3 py-2 text-sm text-ink-2 ring-1 ring-line">
+            {busy && <span className="h-2 w-2 animate-pulse rounded-full bg-ai" />}{msg}
+          </p>
+        )}
+      </header>
 
-      {job && (
-        <p className="text-xs text-slate-500"><b>Criteria:</b> {job.criteria.join(" · ")}</p>
+      {cands.length > 0 && (
+        <ol className="grid grid-cols-2 overflow-hidden rounded-[10px] border bg-white md:grid-cols-4">
+          {steps.map((s, i) => (
+            <li key={s.label} className={`relative px-4 py-3.5 ${i ? "border-l" : ""} ${i === 2 ? "max-md:border-l-0 max-md:border-t" : ""} ${i === 3 ? "max-md:border-t" : ""}`}>
+              <div className={`text-2xl font-semibold tabular-nums ${s.tone ?? "text-ink"}`}>{s.n}</div>
+              <div className="mt-0.5 text-xs leading-snug text-ink-2">{s.label}</div>
+            </li>
+          ))}
+        </ol>
       )}
 
       {flagged.length > 0 && (
-        <section className="rounded-xl border-2 border-red-300 bg-red-50 p-4">
-          <h2 className="mb-2 font-semibold text-red-700">🚩 Blocked: manipulation attempts ({flagged.length})</h2>
-          <p className="mb-3 text-xs text-red-700">Excluded from AI ranking. A human must review before anything happens.</p>
-          {flagged.map((c) => (
-            <div key={c.id} className="mb-2 rounded border border-red-200 bg-white p-3 text-sm">
-              <div className="flex items-center gap-2">
-                <b>{c.code}</b><span className="text-slate-400">{c.file_name}</span>
-                <div className="ml-auto flex gap-2">
-                  <button onClick={() => act(c.id, "release")} disabled={!!busy} className="rounded border px-2 py-1 text-xs">Release (rank visible text only)</button>
-                  <button onClick={() => act(c.id, "reject")} disabled={!!busy} className="rounded bg-red-600 px-2 py-1 text-xs text-white">Reject</button>
+        <section className="overflow-hidden rounded-[10px] border border-block/30 bg-white">
+          <div className="border-b border-block/20 bg-block-soft px-5 py-3.5">
+            <h2 className="section-title text-block">Quarantine: {flagged.length} {flagged.length > 1 ? "resumes" : "resume"} tried to manipulate the AI</h2>
+            <p className="mt-0.5 text-sm text-block/80">The ranking AI never saw these. Nothing happens until a person decides.</p>
+          </div>
+          <div className="divide-y">
+            {flagged.map((c) => (
+              <article key={c.id} className="px-5 py-4">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <b className="text-ink">{c.code}</b>
+                  <span className="truncate text-sm text-ink-3">{c.file_name}</span>
+                  <div className="ml-auto flex gap-2">
+                    <button onClick={() => act(c.id, "release")} disabled={!!busy} className="btn btn-sm btn-ghost">Release, rank visible text only</button>
+                    <button onClick={() => act(c.id, "reject")} disabled={!!busy} className="btn btn-sm btn-block">Reject</button>
+                  </div>
                 </div>
-              </div>
-              <ul className="mt-1 list-disc pl-5 text-xs text-red-700">{c.injection_reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
-              {c.hidden_text && <pre className="mt-2 whitespace-pre-wrap rounded bg-slate-900 p-2 text-xs text-amber-300">Hidden text found: “{c.hidden_text}”</pre>}
-            </div>
-          ))}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {c.injection_reasons.map((r, i) => <span key={i} className="chip bg-block-soft font-normal text-block">{r}</span>)}
+                </div>
+                {c.hidden_text && (
+                  <figure className="mt-3">
+                    <figcaption className="mb-1 text-xs text-ink-3">Invisible on the page. Revealed by reading the PDF&apos;s drawing instructions:</figcaption>
+                    <blockquote className="uv">{c.hidden_text}</blockquote>
+                  </figure>
+                )}
+              </article>
+            ))}
+          </div>
         </section>
       )}
 
-      <section className="rounded-xl border bg-white">
-        <h2 className="border-b p-4 font-semibold">Ranked shortlist <span className="text-xs font-normal text-slate-500">(anonymized: the AI never saw names, gender, age or address)</span></h2>
-        {!ranked.length && <p className="p-4 text-sm text-slate-500">Upload resumes, then click “Rank”.</p>}
-        {ranked.map((c, i) => (
-          <div key={c.id} className="border-b p-4 last:border-0">
-            <div className="flex items-center gap-3">
-              <span className="w-6 text-slate-400">#{i + 1}</span>
-              <b>{c.code}</b>
-              <div className="h-2 w-32 rounded bg-slate-100"><div className="h-2 rounded bg-indigo-500" style={{ width: `${c.score}%` }} /></div>
-              <b className="w-10">{c.score}</b>
-              <span className={`rounded px-2 py-0.5 text-xs ${STATUS_STYLE[c.status]}`}>{c.status}</span>
-              <button onClick={() => setOpen(open === c.id ? null : c.id)} className="text-xs text-indigo-600">details</button>
-              {c.status === "ranked" && (
-                <div className="ml-auto flex gap-2">
-                  <button onClick={() => act(c.id, "shortlist")} disabled={!!busy} className="rounded bg-green-600 px-2 py-1 text-xs text-white">Shortlist</button>
-                  <button onClick={() => act(c.id, "review")} disabled={!!busy} className="rounded bg-amber-500 px-2 py-1 text-xs text-white">Ask info</button>
-                  <button onClick={() => act(c.id, "reject")} disabled={!!busy} className="rounded bg-slate-500 px-2 py-1 text-xs text-white">Reject</button>
+      <section className="panel overflow-hidden">
+        <div className="flex flex-wrap items-baseline gap-x-3 border-b px-5 py-3.5">
+          <h2 className="section-title">Ranked shortlist</h2>
+          <p className="text-xs text-ink-3">The AI scored anonymized text: no names, gender, age, photo or address.</p>
+        </div>
+        {!ranked.length && (
+          <p className="px-5 py-10 text-center text-sm text-ink-2">
+            {cands.length ? "Click Rank to score the resumes that passed the security scan." : "Upload resumes to start. Each file is scanned before any AI reads it."}
+          </p>
+        )}
+        <ul className="divide-y">
+          {ranked.map((c, i) => {
+            const st = STATUS[c.status] ?? STATUS.new;
+            const total = (c.matched_criteria?.length ?? 0) + (c.missing_criteria?.length ?? 0);
+            return (
+              <li key={c.id} className="px-5 py-4">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <span className="w-5 text-sm tabular-nums text-ink-3">{i + 1}</span>
+                  <div className="flex w-28 items-baseline gap-1">
+                    <span className="text-2xl font-semibold tabular-nums">{c.score}</span>
+                    <span className="text-xs text-ink-3">/100</span>
+                  </div>
+                  <div className="min-w-0">
+                    <b className="text-ink">{c.code}</b>
+                    {total > 0 && (
+                      <span className="ml-3 inline-flex items-center gap-2 text-xs text-ink-2">
+                        <span className="flex gap-[3px]" aria-hidden>
+                          {Array.from({ length: total }, (_, k) => (
+                            <i key={k} className={`h-2 w-2 rounded-full ${k < c.matched_criteria.length ? "bg-human" : "ring-1 ring-inset ring-ink-3/50"}`} />
+                          ))}
+                        </span>
+                        {c.matched_criteria.length} of {total} criteria met
+                      </span>
+                    )}
+                  </div>
+                  <span className={`chip ${st.cls}`}>{st.label}</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <button onClick={() => setOpen(open === c.id ? null : c.id)} aria-expanded={open === c.id} className="btn btn-sm text-ink-2 hover:bg-wash">
+                      {open === c.id ? "Hide evidence" : "Evidence"}
+                    </button>
+                    {c.status === "ranked" && (
+                      <>
+                        <button onClick={() => act(c.id, "shortlist")} disabled={!!busy} className="btn btn-sm btn-approve">Shortlist</button>
+                        <button onClick={() => act(c.id, "review")} disabled={!!busy} className="btn btn-sm btn-ghost">Ask for info</button>
+                        <button onClick={() => act(c.id, "reject")} disabled={!!busy} className="btn btn-sm btn-ghost">Reject</button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-            <p className="ml-9 mt-1 text-sm text-slate-600">{c.justification}</p>
-            {open === c.id && (
-              <div className="ml-9 mt-2 grid gap-2 text-xs md:grid-cols-2">
-                <div><b className="text-green-700">✓ Matched</b><ul className="list-disc pl-4">{c.matched_criteria?.map((m, k) => <li key={k}>{m}</li>)}</ul></div>
-                <div><b className="text-red-700">✗ Missing</b><ul className="list-disc pl-4">{c.missing_criteria?.map((m, k) => <li key={k}>{m}</li>)}</ul></div>
-                <pre className="col-span-full max-h-48 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-2">{c.anonymized_text}</pre>
-              </div>
-            )}
-          </div>
-        ))}
+                <div className="ml-9 mt-2 h-1 max-w-md overflow-hidden rounded-full bg-wash">
+                  <div className="h-full rounded-full bg-ink/70" style={{ width: `${c.score}%` }} />
+                </div>
+                <p className="ml-9 mt-2 max-w-[75ch] text-sm leading-relaxed text-ink-2">{c.justification}</p>
+                {open === c.id && (
+                  <div className="ml-9 mt-3 grid gap-4 md:grid-cols-2">
+                    <div>
+                      <h3 className="mb-1.5 text-xs font-semibold text-human">Criteria met</h3>
+                      <ul className="space-y-1 text-sm">{c.matched_criteria?.map((m, k) => <li key={k} className="flex gap-2"><span className="text-human">✓</span>{m}</li>)}</ul>
+                    </div>
+                    <div>
+                      <h3 className="mb-1.5 text-xs font-semibold text-block">Criteria missing</h3>
+                      <ul className="space-y-1 text-sm">{c.missing_criteria?.map((m, k) => <li key={k} className="flex gap-2"><span className="text-block">✕</span>{m}</li>)}</ul>
+                    </div>
+                    <div className="md:col-span-2">
+                      <h3 className="mb-1.5 text-xs font-semibold text-ink-2">Exactly what the AI read (anonymized)</h3>
+                      <pre className="doc max-h-56 overflow-auto rounded-md bg-paper p-3 text-ink-2">{c.anonymized_text}</pre>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </section>
     </div>
   );

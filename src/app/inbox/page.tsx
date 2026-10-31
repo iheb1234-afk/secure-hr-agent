@@ -9,15 +9,16 @@ type Email = {
 };
 
 const CATS: { key: string; label: string }[] = [
-  { key: "interview", label: "📅 Interviews" },
-  { key: "candidate_question", label: "❓ Candidate questions & complaints" },
-  { key: "internal", label: "🏢 Internal" },
-  { key: "application", label: "📄 New applications" },
-  { key: "vendor", label: "💼 Vendors" },
-  { key: "spam_phishing", label: "⚠️ Spam & phishing" },
+  { key: "interview", label: "Interviews" },
+  { key: "candidate_question", label: "Candidate questions and complaints" },
+  { key: "internal", label: "Internal" },
+  { key: "application", label: "New applications" },
+  { key: "vendor", label: "Vendors" },
+  { key: "spam_phishing", label: "Spam and phishing" },
   { key: "other", label: "Other" },
 ];
-const URG: Record<string, string> = { high: "bg-red-100 text-red-700", medium: "bg-amber-100 text-amber-700", low: "bg-slate-100 text-slate-500" };
+const URG: Record<string, string> = { high: "bg-block-soft text-block", medium: "bg-ai-soft text-ai", low: "bg-wash text-ink-3" };
+const URG_LABEL: Record<string, string> = { high: "Urgent", medium: "This week", low: "Low" };
 const ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 const ago = (iso: string) => { const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600_000); return h < 1 ? "<1h ago" : `${h}h ago`; };
 
@@ -38,7 +39,7 @@ export default function Inbox() {
     setBusy(true); setMsg("Scanning emails for manipulation, then AI is sorting the inbox…");
     const r = await fetch("/api/inbox/digest", { method: "POST" });
     const j = await r.json();
-    setMsg(r.ok ? `Digest ready: ${j.classified} emails sorted · ${j.blocked} blocked 🚩` : j.error);
+    setMsg(r.ok ? `Digest ready: ${j.classified} emails sorted, ${j.blocked} blocked.` : j.error);
     setBusy(false); load();
   }
 
@@ -48,48 +49,69 @@ export default function Inbox() {
   const high = done.filter((e) => !e.flagged && e.urgency === "high");
 
   const Row = ({ e }: { e: Email }) => (
-    <div className="border-b py-2 last:border-0">
-      <div className="flex cursor-pointer items-center gap-2 text-sm" onClick={() => setOpen(open === e.id ? null : e.id)}>
-        {e.urgency && <span className={`rounded px-1.5 text-xs ${URG[e.urgency]}`}>{e.urgency}</span>}
-        {e.needs_human && !e.flagged && <span className="rounded bg-indigo-100 px-1.5 text-xs text-indigo-700">needs human answer</span>}
-        <b className="truncate">{e.subject}</b>
-        <span className="ml-auto whitespace-nowrap text-xs text-slate-400">{e.from_name} · {ago(e.received_at)}</span>
-      </div>
-      {e.summary && <p className="text-xs text-slate-600">{e.summary}</p>}
-      {open === e.id && <pre className="mt-1 whitespace-pre-wrap rounded bg-slate-50 p-2 text-xs">{e.from_email}{"\n\n"}{e.body}</pre>}
+    <div className="px-5 py-3">
+      <button type="button" className="flex w-full flex-wrap items-center gap-x-2.5 gap-y-1 text-left text-sm" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>
+        {e.urgency && <span className={`chip ${URG[e.urgency]}`}>{URG_LABEL[e.urgency]}</span>}
+        {e.needs_human && !e.flagged && <span className="chip bg-ai-soft text-ai ring-1 ring-ai/20">Needs your answer</span>}
+        <b className="min-w-0 flex-1 truncate font-medium text-ink">{e.subject}</b>
+        <span className="whitespace-nowrap text-xs text-ink-3">{e.from_name}, {ago(e.received_at)}</span>
+      </button>
+      {e.summary && <p className="mt-1 max-w-[80ch] text-sm text-ink-2">{e.summary}</p>}
+      {open === e.id && <pre className="doc mt-2 rounded-md bg-paper p-3 text-ink-2">{e.from_email}{"\n\n"}{e.body}</pre>}
     </div>
   );
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <h1 className="text-xl font-bold">Inbox digest</h1>
-          <p className="text-sm text-slate-500">The AI sorts the HR inbox by type and urgency and flags what needs a human answer. It never replies on its own. Emails are scanned for manipulation first.</p>
-        </div>
-        <button onClick={digest} disabled={busy} className="ml-auto rounded bg-indigo-600 px-3 py-2 text-sm text-white disabled:opacity-50">
-          {busy ? "Sorting…" : done.length ? "↻ Refresh digest" : "Generate today's digest"}
-        </button>
-        {msg && <p className="w-full text-sm text-slate-600">{busy && "⏳ "}{msg}</p>}
-      </div>
+  const stats = [
+    { n: emails.length, label: "emails in the inbox" },
+    { n: high.length, label: "urgent today", tone: "text-block" },
+    { n: needs.length, label: "need a human answer", tone: "text-ai" },
+    { n: flagged.length, label: "blocked for manipulation", tone: "text-block" },
+  ];
 
-      {!emails.length && <p className="rounded-xl border bg-white p-4 text-sm text-slate-500">Inbox empty. Run supabase/migration_03_inbox.sql to load the demo inbox.</p>}
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-end gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="page-title">Inbox digest</h1>
+          <p className="page-lede">The AI sorts the HR inbox by type and urgency and points out what needs a person. It never replies by itself. Every email is scanned for manipulation before the AI reads it.</p>
+        </div>
+        <button onClick={digest} disabled={busy} className="btn btn-primary">
+          {busy ? "Sorting…" : done.length ? "Refresh digest" : "Sort today's inbox"}
+        </button>
+        {msg && (
+          <p role="status" className="flex w-full items-center gap-2 rounded-md bg-white px-3 py-2 text-sm text-ink-2 ring-1 ring-line">
+            {busy && <span className="h-2 w-2 animate-pulse rounded-full bg-ai" />}{msg}
+          </p>
+        )}
+      </header>
+
+      {!emails.length && <p className="panel px-5 py-10 text-center text-sm text-ink-2">The inbox is empty. Run supabase/migration_03_inbox.sql to load the demo inbox.</p>}
 
       {done.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="rounded-xl border bg-white p-3"><div className="text-2xl font-bold">{emails.length}</div><div className="text-xs">emails</div></div>
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700"><div className="text-2xl font-bold">{high.length}</div><div className="text-xs">urgent today</div></div>
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-indigo-700"><div className="text-2xl font-bold">{needs.length}</div><div className="text-xs">need a human answer</div></div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800"><div className="text-2xl font-bold">{flagged.length}</div><div className="text-xs">blocked (manipulation)</div></div>
-        </div>
+        <dl className="grid grid-cols-2 overflow-hidden rounded-[10px] border bg-white md:grid-cols-4">
+          {stats.map((s, i) => (
+            <div key={s.label} className={`px-4 py-3.5 ${i ? "md:border-l" : ""} ${i % 2 ? "max-md:border-l" : ""} ${i > 1 ? "max-md:border-t" : ""}`}>
+              <dd className={`text-2xl font-semibold tabular-nums ${s.tone ?? "text-ink"}`}>{s.n}</dd>
+              <dt className="mt-0.5 text-xs text-ink-2">{s.label}</dt>
+            </div>
+          ))}
+        </dl>
       )}
 
       {flagged.length > 0 && (
-        <section className="rounded-xl border-2 border-red-300 bg-red-50 p-4">
-          <h2 className="mb-1 font-semibold text-red-700">🚩 Blocked: emails giving instructions to the AI</h2>
-          {flagged.map((e) => (
-            <div key={e.id} className="text-sm"><Row e={e} /><p className="text-xs text-red-700">{e.flag_reasons.join(" · ")}</p></div>
-          ))}
+        <section className="overflow-hidden rounded-[10px] border border-block/30 bg-white">
+          <div className="border-b border-block/20 bg-block-soft px-5 py-3.5">
+            <h2 className="section-title text-block">Blocked: emails that give instructions to the AI</h2>
+            <p className="mt-0.5 text-sm text-block/80">Kept out of the AI summary. Read them yourself.</p>
+          </div>
+          <div className="divide-y">
+            {flagged.map((e) => (
+              <div key={e.id}>
+                <Row e={e} />
+                <div className="flex flex-wrap gap-1.5 px-5 pb-3">{e.flag_reasons.map((r, i) => <span key={i} className="chip bg-block-soft font-normal text-block">{r}</span>)}</div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -97,17 +119,17 @@ export default function Inbox() {
         const list = done.filter((e) => !e.flagged && e.category === c.key).sort((a, b) => ORDER[a.urgency ?? "low"] - ORDER[b.urgency ?? "low"]);
         if (!list.length) return null;
         return (
-          <section key={c.key} className="rounded-xl border bg-white p-4">
-            <h2 className="mb-1 font-semibold">{c.label} <span className="text-sm font-normal text-slate-400">({list.length})</span></h2>
-            {list.map((e) => <Row key={e.id} e={e} />)}
+          <section key={c.key} className="panel overflow-hidden">
+            <h2 className="section-title border-b px-5 py-3">{c.label} <span className="font-normal text-ink-3">{list.length}</span></h2>
+            <div className="divide-y">{list.map((e) => <Row key={e.id} e={e} />)}</div>
           </section>
         );
       })}
 
       {!done.length && emails.length > 0 && (
-        <section className="rounded-xl border bg-white p-4">
-          <h2 className="mb-1 font-semibold">Unsorted inbox ({emails.length})</h2>
-          {emails.map((e) => <Row key={e.id} e={e} />)}
+        <section className="panel overflow-hidden">
+          <h2 className="section-title border-b px-5 py-3">Unsorted inbox <span className="font-normal text-ink-3">{emails.length}</span></h2>
+          <div className="divide-y">{emails.map((e) => <Row key={e.id} e={e} />)}</div>
         </section>
       )}
     </div>

@@ -22,45 +22,63 @@ export default async function Security() {
   const byType: Record<string, number> = {};
   for (const r of reasons) { const k = r.replace(/^Hidden text: /, "Hidden: ").replace(/ \(FR\)$/, ""); byType[k] = (byType[k] ?? 0) + 1; }
 
-  const Stat = ({ n, label, tone }: { n: number | string; label: string; tone: string }) => (
-    <div className={`rounded-xl border p-4 ${tone}`}><div className="text-3xl font-bold">{n}</div><div className="text-xs">{label}</div></div>
-  );
+  const stats = [
+    { n: all.length, label: "resumes scanned before any AI read them" },
+    { n: flagged.length, label: "manipulation attempts quarantined", tone: "text-block" },
+    { n: hidden.length, label: "with hidden text (white, tiny or off-page)", tone: "text-block" },
+    { n: all.length, label: "anonymized before ranking" },
+    { n: `${sent ?? 0}/${drafts ?? 0}`, label: `AI drafts sent after a human approved (${discarded ?? 0} discarded)`, tone: "text-human" },
+  ];
+  const layers = [
+    { t: "Hidden-text detector", d: "Reads the PDF's drawing instructions (color, font size, position) to find text a person can't see." },
+    { t: "Unicode check", d: "Invisible tag characters, direction tricks and look-alike letters." },
+    { t: "Rule engine", d: "Known manipulation patterns, in English and French." },
+    { t: "AI security classifier", d: "A separate model call that only answers: is this an attack? If it fails, the file is held, not passed." },
+    { t: "Guarded prompt", d: "The resume is wrapped as untrusted data, only visible anonymized text is sent, and the output must match a strict schema." },
+    { t: "Human gate", d: "The AI cannot send or decide anything. Every step lands in the append-only audit log." },
+  ];
+  const max = Math.max(1, ...Object.values(byType));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">🛡️ Security Lab</h1>
-        <p className="text-sm text-slate-500">Live view of the defenses. Every number below comes from the database.</p>
-      </div>
+    <div className="space-y-8">
+      <header>
+        <h1 className="page-title">Security Lab</h1>
+        <p className="page-lede">Live numbers from the database, and tests you can run in front of anyone.</p>
+      </header>
 
-      <div className="grid gap-3 md:grid-cols-5">
-        <Stat n={all.length} label="CVs scanned" tone="bg-white" />
-        <Stat n={flagged.length} label="Manipulation attempts blocked" tone="bg-red-50 border-red-200 text-red-700" />
-        <Stat n={hidden.length} label="CVs with hidden text" tone="bg-amber-50 border-amber-200 text-amber-800" />
-        <Stat n={all.length} label="CVs anonymized before AI" tone="bg-indigo-50 border-indigo-200 text-indigo-700" />
-        <Stat n={`${sent ?? 0}/${drafts ?? 0}`} label={`AI drafts approved by a human (${discarded ?? 0} discarded)`} tone="bg-green-50 border-green-200 text-green-700" />
-      </div>
+      <dl className="grid grid-cols-2 overflow-hidden rounded-[10px] border bg-white md:grid-cols-5">
+        {stats.map((s, i) => (
+          <div key={s.label} className={`px-4 py-3.5 ${i ? "md:border-l" : ""} ${i % 2 ? "max-md:border-l" : ""} ${i > 1 ? "max-md:border-t" : ""}`}>
+            <dd className={`text-2xl font-semibold tabular-nums ${s.tone ?? "text-ink"}`}>{s.n}</dd>
+            <dt className="mt-0.5 text-xs leading-snug text-ink-2">{s.label}</dt>
+          </div>
+        ))}
+      </dl>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border bg-white p-4">
-          <h2 className="mb-2 font-semibold">Attack types detected</h2>
-          {!Object.keys(byType).length && <p className="text-sm text-slate-500">None yet.</p>}
-          {Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
-            <div key={k} className="mb-1 flex items-center gap-2 text-sm">
-              <div className="h-2 rounded bg-red-400" style={{ width: `${Math.max(8, v * 30)}px` }} />
-              <span className="w-6 font-mono">{v}</span><span>{k}</span>
-            </div>
-          ))}
-        </div>
-        <div className="rounded-xl border bg-white p-4 text-sm">
-          <h2 className="mb-2 font-semibold">Defense layers</h2>
-          <ol className="list-decimal space-y-1 pl-5">
-            <li><b>Hidden-text detector</b>: reads PDF drawing instructions (color, font size, position) to find text a human can&apos;t see.</li>
-            <li><b>Rule engine</b>: known manipulation patterns, English + French.</li>
-            <li><b>AI security classifier</b>: a separate model call that only judges &quot;is this an attack?&quot;.</li>
-            <li><b>Guarded prompts</b>: CV text is wrapped as untrusted data; the AI only sees visible, anonymized text; output is schema-validated.</li>
-            <li><b>Human gate</b>: the AI can&apos;t send or decide anything. Every action is in the append-only audit log.</li>
+      <section className="grid gap-6 md:grid-cols-[1.15fr_1fr]">
+        <div className="panel p-5">
+          <h2 className="section-title">Every resume passes six layers, in this order</h2>
+          <ol className="mt-4 space-y-0">
+            {layers.map((l, i) => (
+              <li key={l.t} className="relative flex gap-3 pb-4 last:pb-0">
+                {i < layers.length - 1 && <span className="absolute left-[11px] top-6 h-[calc(100%-1rem)] w-px bg-line" aria-hidden />}
+                <span className={`z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold ${i === layers.length - 1 ? "bg-human text-white" : "bg-ink text-white"}`}>{i + 1}</span>
+                <div className="text-sm"><b className="font-semibold">{l.t}</b><p className="text-ink-2">{l.d}</p></div>
+              </li>
+            ))}
           </ol>
+        </div>
+        <div className="panel p-5">
+          <h2 className="section-title">What the attackers tried</h2>
+          {!Object.keys(byType).length && <p className="mt-3 text-sm text-ink-2">Nothing caught yet. Upload the demo resumes to see it work.</p>}
+          <ul className="mt-4 space-y-3">
+            {Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+              <li key={k} className="text-sm">
+                <div className="flex justify-between gap-3"><span>{k}</span><b className="tabular-nums">{v}</b></div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-wash"><div className="h-full rounded-full bg-block/80" style={{ width: `${(v / max) * 100}%` }} /></div>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -71,14 +89,17 @@ export default async function Security() {
       <ConsistencyRunner />
 
       {!!flagged.length && (
-        <section className="rounded-xl border bg-white p-4">
-          <h2 className="mb-2 font-semibold">Blocked CVs</h2>
-          {flagged.map((c) => (
-            <div key={c.code + c.file_name} className="border-b py-2 text-sm last:border-0">
-              <b>{c.code}</b> <span className="text-slate-400">{c.file_name}</span> · <span className="text-red-600">{(c.injection_reasons as string[]).join(" · ")}</span>
-              {c.hidden_text && <div className="mt-1 rounded bg-slate-900 p-2 font-mono text-xs text-amber-300">{c.hidden_text.slice(0, 200)}</div>}
-            </div>
-          ))}
+        <section className="panel overflow-hidden">
+          <h2 className="section-title border-b px-5 py-3">Quarantined resumes</h2>
+          <div className="divide-y">
+            {flagged.map((c) => (
+              <div key={c.code + c.file_name} className="px-5 py-3.5 text-sm">
+                <div className="flex flex-wrap items-center gap-2"><b>{c.code}</b><span className="text-ink-3">{c.file_name}</span></div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">{(c.injection_reasons as string[]).map((r, i) => <span key={i} className="chip bg-block-soft font-normal text-block">{r}</span>)}</div>
+                {c.hidden_text && <blockquote className="uv mt-2">{c.hidden_text.slice(0, 200)}</blockquote>}
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </div>

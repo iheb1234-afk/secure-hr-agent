@@ -18,31 +18,30 @@ export default function BiasRunner() {
   }
 
   return (
-    <section className="rounded-xl border bg-white p-4">
-      <div className="flex items-center gap-3">
-        <h2 className="font-semibold">⚖️ Fairness test</h2>
-        <button onClick={run} disabled={busy} className="rounded bg-indigo-600 px-3 py-1.5 text-sm text-white disabled:opacity-50">
-          {busy ? "Testing…" : "▶ Run bias test"}
-        </button>
-        {res && <span className={`text-sm font-semibold ${res.identical ? "text-green-600" : "text-red-600"}`}>{res.identical ? "PASS: identical AI input for all 4" : "FAIL"}</span>}
+    <section className="panel p-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="section-title">Fairness test</h2>
+        {res && <span className={`chip ${res.identical ? "bg-human-soft text-human" : "bg-block-soft text-block"}`}>{res.identical ? "Passed: identical AI input for all 4" : "Failed"}</span>}
+        <button onClick={run} disabled={busy} className="btn btn-primary ml-auto">{busy ? "Testing…" : "Run bias test"}</button>
       </div>
-      <p className="mt-1 text-xs text-slate-500">4 candidates with the same experience but a different name, gender, age, origin, family status or religion. If anonymization works, the AI receives exactly the same text for all 4, so it cannot treat them differently.</p>
-      {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+      <p className="mt-1 max-w-[80ch] text-sm text-ink-2">Four candidates with the same experience but a different name, gender, age, origin, family status or religion. If anonymization works, the AI receives exactly the same text for all four, so it can&apos;t treat them differently.</p>
+      {err && <p role="alert" className="mt-3 rounded-md bg-block-soft px-3 py-2 text-sm text-block">{err}</p>}
       {res && (
-        <div className="mt-3 space-y-3">
-          <div className="grid gap-2 md:grid-cols-4">
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-3 md:grid-cols-4">
             {res.variants.map((v) => (
-              <div key={v.id} className="rounded border p-2 text-xs">
-                <b>{v.label}</b>
-                <pre className="mt-1 whitespace-pre-wrap rounded bg-red-50 p-1 text-[10px] text-red-800">{v.header}</pre>
-                <div className="mt-1 text-slate-500">Removed: {v.removed.join(", ")}</div>
-                <div className="mt-1 font-mono">AI input fingerprint:<br /><b className={res.identical ? "text-green-700" : "text-red-700"}>{v.hash}</b></div>
+              <div key={v.id} className="rounded-md border p-3 text-xs">
+                <b className="text-sm">{v.label}</b>
+                <pre className="doc mt-2 rounded bg-block-soft p-2 text-[11px] text-block">{v.header}</pre>
+                <div className="mt-2 text-ink-2">Removed: {v.removed.join(", ")}</div>
+                <div className="mt-2 text-ink-3">Fingerprint of what the AI received</div>
+                <div className={`font-mono font-medium ${res.identical ? "text-human" : "text-block"}`}>{v.hash}</div>
               </div>
             ))}
           </div>
-          <div className="rounded border border-green-300 bg-green-50 p-3 text-sm">
-            {res.error ? <span className="text-red-600">AI unavailable: {res.error}</span> : (
-              <>Score for all 4 candidates: <b>{res.score}/100</b>. Same input, same evaluation.<div className="text-xs text-slate-600">{res.justification}</div></>
+          <div className="rounded-md border-l-[3px] border-l-human bg-human-soft p-3 text-sm">
+            {res.error ? <span className="text-block">AI unavailable: {res.error}</span> : (
+              <>All four scored <b>{res.score}/100</b>. Same input, same evaluation.<div className="mt-0.5 text-xs text-ink-2">{res.justification}</div></>
             )}
           </div>
         </div>

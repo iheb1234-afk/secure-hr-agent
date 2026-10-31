@@ -1,1 +1,62 @@
 @import "tailwindcss";
+
+/* HireGuard design tokens.
+   Colors carry meaning: green = a human decided, amber = AI work waiting for a human,
+   red = blocked / untrusted, violet = hidden text revealed. Nothing else gets color. */
+@theme {
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-ink: #17212b;      /* text, sidebar */
+  --color-ink-2: #4a5663;    /* secondary text */
+  --color-ink-3: #7c8794;    /* hints */
+  --color-paper: #f3f4f1;    /* page background (cool, not cream) */
+  --color-line: #dfe2e0;     /* borders and dividers */
+  --color-wash: #eceeeb;     /* subtle fills */
+
+  --color-human: #17694f;    /* human decision, approve */
+  --color-human-soft: #e2f1ea;
+  --color-ai: #9a5b0c;       /* AI output pending a human */
+  --color-ai-soft: #fbf0dd;
+  --color-block: #b42328;    /* blocked, untrusted */
+  --color-block-soft: #fbe7e6;
+
+  --color-uv: #c4b5fd;       /* revealed hidden ink */
+  --color-uv-deep: #191427;
+}
+
+@layer base {
+  *, ::before, ::after { border-color: var(--color-line); }
+  body { font-feature-settings: "ss01", "cv11"; }
+  ::selection { background: #cfe6dc; }
+  :focus-visible { outline: 2px solid var(--color-human); outline-offset: 2px; border-radius: 4px; }
+  h1 { letter-spacing: -0.015em; }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40; }
+  .btn-sm { @apply px-2.5 py-1 text-xs; }
+  .btn-primary { @apply bg-ink text-white hover:bg-ink/85; }
+  .btn-approve { @apply bg-human text-white hover:bg-human/90; }
+  .btn-block { @apply bg-block text-white hover:bg-block/90; }
+  .btn-ghost { @apply border bg-white text-ink hover:bg-wash; }
+  .panel { @apply rounded-[10px] border bg-white; }
+  .field { @apply w-full rounded-md border bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-ink-3 focus:outline-none; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium; }
+  .page-title { @apply text-[1.75rem] font-semibold leading-tight text-ink; }
+  .page-lede { @apply mt-1 max-w-[68ch] text-sm leading-relaxed text-ink-2; }
+  .section-title { @apply text-base font-semibold text-ink; }
+  .doc { @apply whitespace-pre-wrap font-mono text-[12px] leading-relaxed; }
+
+  /* The one loud element: hidden text, shown as if under UV light */
+  .uv {
+    @apply whitespace-pre-wrap font-mono text-[12px] leading-relaxed rounded-md px-3 py-2.5;
+    background: var(--color-uv-deep);
+    color: var(--color-uv);
+    text-shadow: 0 0 8px rgb(167 139 250 / 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { transition: none !important; animation: none !important; }
+}
