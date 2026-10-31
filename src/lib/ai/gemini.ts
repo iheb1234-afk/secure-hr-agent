@@ -21,10 +21,16 @@ function wrap(text: string) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Gemini accepts a subset of JSON Schema: strip keywords it may reject. Zod re-validates the answer anyway.
+const DROP = new Set(["$schema", "additionalProperties", "maxLength", "minLength", "maxItems", "minItems"]);
+function clean(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(clean);
+  if (node && typeof node === "object")
+    return Object.fromEntries(Object.entries(node).filter(([k]) => !DROP.has(k)).map(([k, v]) => [k, clean(v)]));
+  return node;
+}
 function jsonSchema(schema: z.ZodType) {
-  const { $schema, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>;
-  void $schema;
-  return rest;
+  return clean(z.toJSONSchema(schema));
 }
 
 async function callJSON<T>(system: string, prompt: string, schema: z.ZodType<T>): Promise<T> {
@@ -121,7 +127,7 @@ export const DigestSchema = z.object({
     category: z.enum(["application", "candidate_question", "interview", "internal", "vendor", "spam_phishing", "other"]),
     urgency: z.enum(["high", "medium", "low"]),
     needs_human: z.boolean(),
-    summary: z.string().max(200),
+    summary: z.string().max(400),
   })).max(60),
 });
 
