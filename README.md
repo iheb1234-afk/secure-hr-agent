@@ -29,7 +29,8 @@ HireGuard screens and ranks resumes against a job offer, drafts candidate replie
 **Web app security**
 - Supabase Auth; every page and API route requires login (middleware).
 - **Roles** (recruiter / admin) enforced in the database with **Row Level Security**; roles can't be changed from the app.
-- The app never uses the `service_role` key: every query runs as the logged-in user.
+- **The browser is read-only**: the database refuses any insert/update/delete from it (migration_05). Every write goes through an API route that checks the role, validates input and applies the approval gate and audit log, then writes with a server-only key (never sent to the browser).
+- 3 roles: employee (Q&A only), recruiter, admin. New accounts are employees by default (least privilege); public sign-up is disabled.
 - Upload validation: PDF magic bytes check, 2 MB max, 30 files max, filename sanitization.
 - Rate limiting on AI endpoints; secrets in env vars only; security headers (X-Frame-Options, nosniff).
 
@@ -47,7 +48,7 @@ Browser (Next.js) ──► Middleware (auth) ──► API routes
 Next.js 15 (App Router, TypeScript, Tailwind) · Supabase (Postgres, Auth, RLS) · Google Gemini API · unpdf (pdf.js) · Zod
 
 ## Run locally
-1. Supabase: create a project, add users `recruiter@demo.tn` and `admin@demo.tn` (Auto Confirm), then run `supabase/schema.sql` in the SQL Editor.
+1. Supabase: create a project, add users `recruiter@demo.tn` and `admin@demo.tn` (Auto Confirm), run the files in `supabase/` in order (schema, then migrations 02 to 05), and disable public sign-ups.
 2. `cp .env.example .env.local` and fill in the keys.
 3. `npm install && npm run dev` → http://localhost:3000
 4. Log in → "Create demo job offers" → upload `dataset/resumes/*.pdf` → "Rank".

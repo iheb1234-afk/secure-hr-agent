@@ -27,12 +27,20 @@ export default function Ask() {
   const [err, setErr] = useState("");
   const [history, setHistory] = useState<Q[]>([]);
   const [replies, setReplies] = useState<Record<string, string>>({});
+  const [isHR, setIsHR] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await sb.from("employee_questions").select("*").order("created_at", { ascending: false }).limit(30);
     setHistory(data ?? []);
   }, [sb]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    sb.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return;
+      const { data: p } = await sb.from("profiles").select("role").eq("id", data.user.id).single();
+      setIsHR(p?.role === "recruiter" || p?.role === "admin");
+    });
+  }, [sb]);
 
   async function ask(text = q) {
     if (text.trim().length < 5) return;
@@ -83,7 +91,7 @@ export default function Ask() {
         )}
       </section>
 
-      {escalated.length > 0 && (
+      {isHR && escalated.length > 0 && (
         <section className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
           <h2 className="mb-2 font-semibold text-amber-900">📥 Waiting for HR ({escalated.length})</h2>
           {escalated.map((h) => (

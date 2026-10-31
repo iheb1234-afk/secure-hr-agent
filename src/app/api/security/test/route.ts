@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser, audit } from "@/lib/supabase/server";
+import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { scanRules } from "@/lib/security/injection";
 import { ATTACKS, WEAK_CV_WITH_INJECTION } from "@/lib/security/attack-suite";
 import { classifyInjection, rankResume } from "@/lib/ai/gemini";
@@ -10,8 +10,8 @@ export const maxDuration = 60;
 
 // Runs the built-in red-team suite against the live defenses. Nothing is stored except an audit entry.
 export async function POST() {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(HR);
+  if (ctx instanceof Response) return ctx;
   if (!rateLimit(`sectest:${ctx.user.id}`, 2, 60_000)) return NextResponse.json({ error: "Wait a minute between test runs." }, { status: 429 });
 
   const cases = [];

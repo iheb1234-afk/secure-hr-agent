@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function Security() {
   const ctx = await requireUser();
   if (!ctx) redirect("/login");
+  if (ctx.role === "employee") redirect("/ask");
   const { data: cands } = await ctx.sb.from("candidates").select("code,file_name,injection_flag,injection_reasons,hidden_text,status,created_at");
   const { count: drafts } = await ctx.sb.from("drafts").select("id", { count: "exact", head: true });
   const { count: sent } = await ctx.sb.from("drafts").select("id", { count: "exact", head: true }).eq("status", "sent");

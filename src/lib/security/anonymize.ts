@@ -8,6 +8,9 @@ export type Anonymized = { text: string; fullName: string | null; email: string 
 const LINE_FIELDS = /^\s*(name|full name|nom|address|adresse|date of birth|birth ?date|dob|né\(e\)? le|nationality|nationalité|marital status|situation familiale|photo|religion)\s*:.*$/gim;
 const INLINE_FIELDS = /\b(age|âge|gender|sexe|sex|marital status|situation familiale|nationality|nationalité|religion|date of birth|date de naissance|children|enfants|place of birth|lieu de naissance)\s*:\s*[^|\n]+/gi;
 
+// CV text is untrusted: escape it before building a regex (a name like "C++" used to crash the upload)
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export function anonymize(text: string): Anonymized {
   const removed = new Set<string>();
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -20,7 +23,7 @@ export function anonymize(text: string): Anonymized {
   let t = text;
   if (fullName) {
     t = t.split(fullName).join("[CANDIDATE]");
-    for (const part of fullName.split(/\s+/)) if (part.length > 2) t = t.replace(new RegExp(`\\b${part}\\b`, "g"), "[CANDIDATE]");
+    for (const part of fullName.split(/\s+/)) if (part.length > 2) t = t.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(part)}(?![\\p{L}\\p{N}])`, "gu"), "[CANDIDATE]");
     removed.add("name");
   }
   if (/[\w.+-]+@[\w-]+\.[\w.-]+/.test(t)) removed.add("email");

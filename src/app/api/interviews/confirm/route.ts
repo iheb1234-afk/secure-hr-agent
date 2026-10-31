@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser, audit } from "@/lib/supabase/server";
+import { requireRole, audit, HR } from "@/lib/supabase/server";
 
 const Body = z.object({ eventId: z.string().uuid() });
 
 // Recruiter records the slot the candidate picked: that hold becomes confirmed, the other holds are released.
 export async function POST(req: Request) {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(HR);
+  if (ctx instanceof Response) return ctx;
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 

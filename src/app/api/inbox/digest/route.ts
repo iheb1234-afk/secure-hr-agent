@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser, audit } from "@/lib/supabase/server";
+import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { scanRules } from "@/lib/security/injection";
 import { summarizeInbox } from "@/lib/ai/gemini";
 import { rateLimit } from "@/lib/security/ratelimit";
@@ -9,8 +9,8 @@ export const maxDuration = 60;
 
 // Builds the daily digest. Emails are untrusted input: they go through the same injection shield as CVs.
 export async function POST() {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(HR);
+  if (ctx instanceof Response) return ctx;
   if (!rateLimit(`digest:${ctx.user.id}`, 3, 60_000)) return NextResponse.json({ error: "Wait a minute." }, { status: 429 });
 
   const { data: emails } = await ctx.sb.from("inbox_emails").select("*").order("received_at", { ascending: false }).limit(50);

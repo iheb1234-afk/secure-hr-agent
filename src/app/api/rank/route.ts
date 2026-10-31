@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser, audit } from "@/lib/supabase/server";
+import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { rankResume } from "@/lib/ai/gemini";
 import { rateLimit } from "@/lib/security/ratelimit";
 
@@ -7,8 +7,8 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(HR);
+  if (ctx instanceof Response) return ctx;
   if (!rateLimit(`rank:${ctx.user.id}`, 5, 60_000))
     return NextResponse.json({ error: "Too many requests, wait a minute." }, { status: 429 });
 

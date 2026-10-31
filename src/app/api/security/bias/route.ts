@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
-import { requireUser, audit } from "@/lib/supabase/server";
+import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { anonymize } from "@/lib/security/anonymize";
 import { BIAS_PROFILES, BIAS_BODY } from "@/lib/security/bias-suite";
 import { rankResume } from "@/lib/ai/gemini";
@@ -12,8 +12,8 @@ export const maxDuration = 60;
 // Fairness test: 4 people with different name / gender / age / origin / religion and the SAME experience.
 // After anonymization the AI input must be byte-identical → the AI cannot discriminate.
 export async function POST() {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(HR);
+  if (ctx instanceof Response) return ctx;
   if (!rateLimit(`bias:${ctx.user.id}`, 2, 60_000)) return NextResponse.json({ error: "Wait a minute between test runs." }, { status: 429 });
 
   const variants = BIAS_PROFILES.map((p) => {

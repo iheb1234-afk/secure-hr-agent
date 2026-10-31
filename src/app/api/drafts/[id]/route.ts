@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser, audit } from "@/lib/supabase/server";
+import { requireRole, audit, HR } from "@/lib/supabase/server";
 
 const Body = z.object({
   action: z.enum(["approve", "discard"]),
@@ -10,9 +10,10 @@ const Body = z.object({
 
 // Nothing leaves the system without a human click. "Send" = simulated outbox in this prototype.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(HR);
+  if (ctx instanceof Response) return ctx;
   const { id } = await params;
+  if (!/^[0-9a-f-]{36}$/.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   const { action, subject, body } = parsed.data;
@@ -21,7 +22,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!d || d.status !== "pending") return NextResponse.json({ error: "Draft not pending" }, { status: 400 });
 
   if (action === "discard") {
-    await ctx.sb.from("drafts").update({ status: "discarded", decided_by: ctx.user.id, decided_at: new Date().toISOString() }).eq("id", id);
+    await ctx.sb.from("drafts").update({ status: "discarded", decided_by: ctx.user.id, decided_at: new Date().toISOString() }).eq("id", id).eq("status", "pending");
     await audit(ctx, "human", "draft.discarded", "drafts", id, { code: d.candidates.code });
     return NextResponse.json({ ok: true });
   }
@@ -40,9 +41,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: `Not sent: the email still contains "${leftover[0]}". Edit it, then approve again.` }, { status: 422 });
   }
 
-  await ctx.sb.from("drafts").update({
+  // only flips a draft that is STILL pending (two clicks at once can't send it twice)
+  const { data: updated, error: upErr } = await ctx.sb.from("drafts").update({
     status: "sent", subject: finalSubject, body: finalBody, decided_by: ctx.user.id, decided_at: new Date().toISOString(),
-  }).eq("id", id);
+  }).eq("id", id).eq("status", "pending").select("id");
+  if (upErr || !updated?.length) return NextResponse.json({ error: "Draft was already handled" }, { status: 409 });
   // Approved invite → hold the proposed slots in the recruiter's calendar until the candidate picks one
   if (d.kind === "invite" && Array.isArray(d.slots) && d.slots.length) {
     await ctx.sb.from("calendar_events").insert(

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import { requireUser } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/supabase/server";
+import { rateLimit } from "@/lib/security/ratelimit";
 
 // Logged-in only: quick check that the AI key + model work (no retries)
 export async function GET(req: Request) {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(["admin"]);
+  if (ctx instanceof Response) return ctx;
+  if (!rateLimit(`health:${ctx.user.id}`, 5, 60_000)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   const q = new URL(req.url).searchParams.get("model");
   const model = q && /^[\w.-]{3,40}$/.test(q) ? q : process.env.GEMINI_MODEL || "gemini-3.8-flash";
   const t = Date.now();

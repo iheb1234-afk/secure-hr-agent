@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser, audit } from "@/lib/supabase/server";
+import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { extractPdf } from "@/lib/security/pdf";
 import { scanRules } from "@/lib/security/injection";
 import { anonymize } from "@/lib/security/anonymize";
@@ -13,8 +13,8 @@ const MAX_FILES = 5; // per request (client sends batches)
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 
 export async function POST(req: Request) {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(HR);
+  if (ctx instanceof Response) return ctx;
   if (!rateLimit(`upload:${ctx.user.id}`, 10, 60_000))
     return NextResponse.json({ error: "Too many uploads, wait a minute." }, { status: 429 });
 
@@ -56,8 +56,9 @@ export async function POST(req: Request) {
           const llm = await classifyInjection(`${visible}\n${hidden}`);
           if (llm.is_injection) reasons.push(`AI security filter: ${llm.reason}`);
         } catch (e) {
-          // rules + hidden-text layers already passed, and ranking prompts are still guarded: log, don't block
-          classifierNote = `AI classifier skipped: ${String(e).slice(0, 150)}`;
+          // fail CLOSED: if the AI security check can't run, a human reviews the CV before any ranking
+          classifierNote = `AI security check unavailable: ${String(e).slice(0, 120)}`;
+          reasons.push("AI security check unavailable: sent to human review (Release to rank it)");
         }
       }
       const flagged = reasons.length > 0;

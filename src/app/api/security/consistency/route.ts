@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser, audit } from "@/lib/supabase/server";
+import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { anonymize } from "@/lib/security/anonymize";
 import { BIAS_PROFILES, BIAS_BODY } from "@/lib/security/bias-suite";
 import { rankResume } from "@/lib/ai/gemini";
@@ -10,8 +10,8 @@ export const maxDuration = 60;
 
 // Consistency test: the SAME CV is scored 5 times. A fair tool must give (almost) the same score every time.
 export async function POST() {
-  const ctx = await requireUser();
-  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await requireRole(HR);
+  if (ctx instanceof Response) return ctx;
   if (!rateLimit(`consist:${ctx.user.id}`, 1, 60_000)) return NextResponse.json({ error: "Wait a minute between runs." }, { status: 429 });
 
   const strong = anonymize(`${BIAS_PROFILES[0].header}\n${BIAS_BODY}`).text;
