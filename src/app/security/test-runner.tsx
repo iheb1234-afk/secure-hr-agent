@@ -26,7 +26,7 @@ export default function TestRunner() {
         </button>
         {res && <span className={`text-sm font-semibold ${res.passed === res.total ? "text-green-600" : "text-red-600"}`}>{res.passed}/{res.total} passed</span>}
       </div>
-      <p className="mt-1 text-xs text-slate-500">9 known attacks (EN + FR) must be blocked, 3 normal CV sentences must NOT be blocked, and one injection is sent straight to the ranking AI to prove the prompt resists even if every filter is bypassed.</p>
+      <p className="mt-1 text-xs text-slate-500">11 known attacks (EN, FR, invisible Unicode, look-alike letters) must be blocked, 4 normal CV sentences (incl. accents, Arabic, Russian) must NOT be blocked, and one injection is sent straight to the ranking AI to prove the prompt resists even if every filter is bypassed.</p>
       {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
       {res && (
         <div className="mt-3 space-y-3">

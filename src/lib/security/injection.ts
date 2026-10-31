@@ -24,11 +24,51 @@ const PATTERNS: { re: RegExp; label: string }[] = [
 
 export type RuleResult = { flagged: boolean; reasons: string[]; matches: string[] };
 
+// ---------- Unicode tricks (inspired by LLM Guard's InvisibleText scanner) ----------
+// Unicode "tag" characters (U+E0000–E007F): completely invisible, but LLMs can read them ("ASCII smuggling").
+const TAG_CHARS = /[\u{E0000}-\u{E007F}]/gu;
+// Bidirectional overrides ("Trojan Source"): make text display in a different order than it is read.
+const BIDI_CONTROLS = /[‪-‮⁦-⁩]/g;
+// Zero-width characters: can split words so filters miss them. (ZWNJ/ZWJ are kept: Arabic and Persian use them.)
+const ZERO_WIDTH = /[​⁠﻿­]/g;
+// Look-alike letters from other alphabets (Cyrillic/Greek) mapped to Latin
+const CONFUSABLES: Record<string, string> = {
+  "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s", "ԁ": "d", "ӏ": "l", "һ": "h", "ԛ": "q", "ԝ": "w",
+  "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P", "С": "C", "Т": "T", "Х": "X", "І": "I",
+  "ο": "o", "α": "a", "ε": "e", "ι": "i", "ν": "v", "ρ": "p", "τ": "t", "κ": "k", "Ο": "O", "Α": "A", "Ε": "E", "Ι": "I", "Τ": "T",
+};
+const LATIN = /[A-Za-z]/;
+const NON_LATIN_LOOKALIKE = new RegExp(`[${Object.keys(CONFUSABLES).join("")}]`);
+
+/** Removes invisible characters before text reaches the AI. */
+export function stripInvisible(text: string): string {
+  return text.replace(TAG_CHARS, "").replace(BIDI_CONTROLS, "").replace(ZERO_WIDTH, "");
+}
+
+/** Detects Unicode obfuscation and returns the text normalized for pattern matching. */
+export function unicodeCheck(text: string): { normalized: string; reasons: string[] } {
+  const reasons: string[] = [];
+  if (TAG_CHARS.test(text)) reasons.push("Invisible Unicode tag characters (hidden message only an AI can read)");
+  TAG_CHARS.lastIndex = 0;
+  if (BIDI_CONTROLS.test(text)) reasons.push("Text-direction override characters (display differs from content)");
+  BIDI_CONTROLS.lastIndex = 0;
+  // a single word mixing Latin letters with look-alike Cyrillic/Greek letters = deliberate disguise
+  const mixed = text.split(/\s+/).some((w) => LATIN.test(w) && NON_LATIN_LOOKALIKE.test(w));
+  if (mixed) reasons.push("Words disguised with look-alike letters from another alphabet");
+
+  // decode tag characters back to ASCII so the rules can read the hidden message too
+  const decodedTags = [...text.matchAll(/[\u{E0020}-\u{E007E}]/gu)].map((m) => String.fromCodePoint(m[0].codePointAt(0)! - 0xe0000)).join("");
+  const base = stripInvisible(text).normalize("NFKC").replace(/./gu, (c) => CONFUSABLES[c] ?? c);
+  return { normalized: decodedTags ? `${base}\n${decodedTags}` : base, reasons };
+}
+
 export function scanRules(text: string): RuleResult {
   const reasons = new Set<string>();
   const matches: string[] = [];
+  const u = unicodeCheck(text);
+  u.reasons.forEach((r) => reasons.add(r));
   for (const { re, label } of PATTERNS) {
-    const m = text.match(re);
+    const m = u.normalized.match(re);
     if (m) {
       reasons.add(label);
       matches.push(m[0]);

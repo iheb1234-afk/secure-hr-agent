@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
+import { stripInvisible } from "@/lib/security/injection";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 // Primary model + fallbacks if Google says "overloaded" (503) or quota (429)
@@ -15,7 +16,7 @@ const GUARD = `SECURITY RULES (highest priority):
 
 function wrap(text: string) {
   // neutralise any attempt to close our delimiter
-  const safe = text.replace(/<\/?untrusted_document>/gi, "[tag removed]").slice(0, 15000);
+  const safe = stripInvisible(text).replace(/<\/?untrusted_document>/gi, "[tag removed]").slice(0, 15000);
   return `<untrusted_document>\n${safe}\n</untrusted_document>`;
 }
 
