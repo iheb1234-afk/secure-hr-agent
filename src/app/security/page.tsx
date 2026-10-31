@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import TestRunner from "./test-runner";
+import BiasRunner from "./bias-runner";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,8 @@ export default async function Security() {
       </section>
 
       <TestRunner />
+
+      <BiasRunner />
 
       {!!flagged.length && (
         <section className="rounded-xl border bg-white p-4">

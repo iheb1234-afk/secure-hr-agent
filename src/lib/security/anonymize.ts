@@ -6,7 +6,7 @@
 export type Anonymized = { text: string; fullName: string | null; email: string | null; removed: string[] };
 
 const LINE_FIELDS = /^\s*(name|full name|nom|address|adresse|date of birth|birth ?date|dob|né\(e\)? le|nationality|nationalité|marital status|situation familiale|photo|religion)\s*:.*$/gim;
-const INLINE_FIELDS = /\b(age|âge|gender|sexe|sex|marital status|situation familiale)\s*:\s*[^|\n]+/gi;
+const INLINE_FIELDS = /\b(age|âge|gender|sexe|sex|marital status|situation familiale|nationality|nationalité|religion|date of birth|date de naissance|children|enfants|place of birth|lieu de naissance)\s*:\s*[^|\n]+/gi;
 
 export function anonymize(text: string): Anonymized {
   const removed = new Set<string>();
