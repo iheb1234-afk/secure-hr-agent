@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole, audit, HR } from "@/lib/supabase/server";
+import { withNotice } from "@/lib/email";
 
 const Body = z.object({
   action: z.enum(["approve", "discard"]),
@@ -43,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // only flips a draft that is STILL pending (two clicks at once can't send it twice)
   const { data: updated, error: upErr } = await ctx.sb.from("drafts").update({
-    status: "sent", subject: finalSubject, body: finalBody, decided_by: ctx.user.id, decided_at: new Date().toISOString(),
+    status: "sent", subject: finalSubject, body: withNotice(finalBody), // AI-screening notice added by the server, not editable decided_by: ctx.user.id, decided_at: new Date().toISOString(),
   }).eq("id", id).eq("status", "pending").select("id");
   if (upErr || !updated?.length) return NextResponse.json({ error: "Draft was already handled" }, { status: 409 });
   // Approved invite → hold the proposed slots in the recruiter's calendar until the candidate picks one

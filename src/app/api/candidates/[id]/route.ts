@@ -3,6 +3,7 @@ import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { draftReply } from "@/lib/ai/gemini";
 import { findSlots } from "@/lib/scheduling";
 import { rateLimit } from "@/lib/security/ratelimit";
+import { formatEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -59,7 +60,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       });
       // Interview slots come from the calendar (deterministic), never from the AI
       const slots = a.draft === "invite" ? await findSlots(ctx.sb) : [];
-      let body = d.body;
+      let body = formatEmail(d.body);
       if (slots.length) {
         const list = slots.map((s, i) => `  Option ${i + 1}: ${s.label}`).join("\n");
         const SLOTS_PH = /\{\{\s*slots\s*\}\}/i;

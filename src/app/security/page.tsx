@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import TestRunner from "./test-runner";
 import BiasRunner from "./bias-runner";
 import ConsistencyRunner from "./consistency-runner";
+import Playground from "./playground";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,8 @@ export default async function Security() {
           </ul>
         </div>
       </section>
+
+      <Playground />
 
       <TestRunner />
 

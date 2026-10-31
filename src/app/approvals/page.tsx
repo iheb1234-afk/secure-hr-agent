@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { SCREENING_NOTICE } from "@/lib/email";
 
 type Draft = {
   id: string; kind: string; subject: string; body: string; status: string; created_at: string; decided_at: string | null;
@@ -73,6 +74,9 @@ export default function Approvals() {
                 <textarea className="field h-48 resize-y leading-relaxed" value={e.body}
                   onChange={(ev) => setEdits({ ...edits, [d.id]: { ...e, body: ev.target.value } })} />
               </label>
+              <p className="rounded-md border border-dashed bg-paper px-3 py-2 text-xs text-ink-2">
+                <span className="font-medium text-ink">Added automatically when sent:</span> {SCREENING_NOTICE}
+              </p>
               {errors[d.id] && <p role="alert" className="rounded-md bg-block-soft px-3 py-2 text-sm text-block">Not sent: {errors[d.id]}</p>}
             </div>
             <div className="flex flex-wrap items-center gap-2 border-t bg-paper/60 px-5 py-3">

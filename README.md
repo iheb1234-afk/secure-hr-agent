@@ -14,12 +14,12 @@ It is also built to be attacked. Candidates can hide instructions in a resume ("
 | Feature | What it does | Where the human decides |
 |---|---|---|
 | **Resume screening and ranking** | Upload PDF/TXT resumes. Each one is scanned for hidden text and manipulation, anonymized, then scored /100 against the job criteria with a justification and the list of criteria met and missing. | Shortlist, ask for info or reject. Nothing happens automatically, and nobody is auto-rejected. |
-| **Automatic replies** | After a human decision, the AI drafts the invite, rejection or info request from that candidate's file only. The name is a `{{candidate_name}}` placeholder, so the AI never sees it. | Approval queue: edit, approve and send, or discard. Sending is refused if a placeholder is left. |
+| **Automatic replies** | After a human decision, the AI drafts the invite, rejection or info request from that candidate's file only. The name is a `{{candidate_name}}` placeholder, so the AI never sees it. | Approval queue: edit, approve and send, or discard. Sending is refused if a placeholder is left. The server adds a notice that AI assisted the screening, that a person decided, and that the candidate can ask for a human review. |
 | **Interview scheduling** | Free 45-minute slots are computed from the recruiter's calendar by plain code (no AI, so no invented times). An approved invite places holds. | The recruiter confirms the slot the candidate picked; the other holds are released. |
 | **Inbox summary** | The HR inbox is sorted by type and urgency, with a one-line summary per email and a "needs your answer" flag. Emails are scanned for manipulation first; phishing is grouped apart. | The AI never replies to an email. |
 | **Employee Q&A** | Answers come only from the company handbook, with the passage quoted. Numbers in the answer are checked against the source. Personal, confidential or unknown topics are not answered: they go to HR. | HR answers escalated questions. |
 
-Plus a **Security Lab** (live defense numbers and tests anyone can run) and an **Audit log** (admin only, with a "Threats only" view).
+Plus a **Security Lab** (live defense numbers, tests anyone can run, and an attack playground where you type your own attack and see which layer catches it) and an **Audit log** (admin only, with a "Threats only" view).
 
 ## Security design
 
