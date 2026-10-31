@@ -96,7 +96,7 @@ export const DraftSchema = z.object({
 });
 
 const KIND_GOAL: Record<string, string> = {
-  invite: "Invite the candidate to a first interview and ask for their availability next week.",
+  invite: "Invite the candidate to a 45-minute first interview next week. Put the exact placeholder {{slots}} alone on its own line where the proposed time options go (they are inserted later by the system), and ask the candidate to reply with the option that suits them.",
   rejection: "Politely decline the application, thank them, and mention one concrete strength from their file. Kind, respectful, no false hope.",
   request_info: "Ask the candidate for the missing information listed below before a decision is taken.",
 };

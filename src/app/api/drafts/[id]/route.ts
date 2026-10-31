@@ -34,6 +34,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await ctx.sb.from("drafts").update({
     status: "sent", subject: finalSubject, body: finalBody, decided_by: ctx.user.id, decided_at: new Date().toISOString(),
   }).eq("id", id);
+  // Approved invite → hold the proposed slots in the recruiter's calendar until the candidate picks one
+  if (d.kind === "invite" && Array.isArray(d.slots) && d.slots.length) {
+    await ctx.sb.from("calendar_events").insert(
+      d.slots.map((s: { start: string; end: string }) => ({
+        title: `Interview hold: ${d.candidates.code}`, starts_at: s.start, ends_at: s.end,
+        kind: "interview", status: "proposed", candidate_id: d.candidate_id, draft_id: id,
+      }))
+    );
+  }
   await audit(ctx, "human", "draft.approved_and_sent", "drafts", id, {
     code: d.candidates.code, edited_by_human: !!edited, to: d.candidates.email ? "[candidate email]" : null,
   });

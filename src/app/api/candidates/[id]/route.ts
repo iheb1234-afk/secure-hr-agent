@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser, audit } from "@/lib/supabase/server";
 import { draftReply } from "@/lib/ai/gemini";
+import { findSlots } from "@/lib/scheduling";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -33,8 +34,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const d = await draftReply(a.draft, { title: c.jobs.title }, {
         anonymizedText: c.anonymized_text, justification: c.justification, missing: c.missing_criteria ?? [],
       });
+      // Interview slots come from the calendar (deterministic), never from the AI
+      const slots = a.draft === "invite" ? await findSlots(ctx.sb) : [];
+      let body = d.body;
+      if (slots.length) {
+        const list = slots.map((s, i) => `  Option ${i + 1}: ${s.label}`).join("\n");
+        body = body.includes("{{slots}}") ? body.replace("{{slots}}", list) : `${body}\n\nProposed slots:\n${list}`;
+      } else body = body.replace("{{slots}}", "");
       const { data: draft } = await ctx.sb.from("drafts")
-        .insert({ candidate_id: id, kind: a.draft, subject: d.subject, body: d.body }).select("id").single();
+        .insert({ candidate_id: id, kind: a.draft, subject: d.subject, body, slots }).select("id").single();
       await audit(ctx, "ai", "draft.created", "drafts", draft?.id ?? null, { code: c.code, kind: a.draft });
     } catch (e) {
       return NextResponse.json({ ok: true, warning: `Decision saved, draft failed: ${String(e).slice(0, 100)}` });
