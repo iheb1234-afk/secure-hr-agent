@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
 // Untrusted content is ALWAYS wrapped in delimiters, and the model is told it is data, never instructions.
 const GUARD = `SECURITY RULES (highest priority):
