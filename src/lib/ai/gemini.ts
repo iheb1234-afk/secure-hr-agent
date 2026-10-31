@@ -17,9 +17,17 @@ function wrap(text: string) {
   return `<untrusted_document>\n${safe}\n</untrusted_document>`;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function jsonSchema(schema: z.ZodType) {
+  const { $schema, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>;
+  void $schema;
+  return rest;
+}
+
 async function callJSON<T>(system: string, prompt: string, schema: z.ZodType<T>): Promise<T> {
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const res = await ai.models.generateContent({
         model: MODEL,
@@ -27,7 +35,7 @@ async function callJSON<T>(system: string, prompt: string, schema: z.ZodType<T>)
         config: {
           systemInstruction: `${system}\n\n${GUARD}`,
           responseMimeType: "application/json",
-          responseJsonSchema: z.toJSONSchema(schema),
+          responseJsonSchema: jsonSchema(schema),
           temperature: 0.2,
         },
       });
@@ -35,9 +43,13 @@ async function callJSON<T>(system: string, prompt: string, schema: z.ZodType<T>)
       return schema.parse(JSON.parse(res.text ?? ""));
     } catch (e) {
       lastErr = e;
+      const msg = String(e);
+      // free-tier rate limit → back off and retry
+      if (/429|RESOURCE_EXHAUSTED|quota|503|UNAVAILABLE|overloaded/i.test(msg)) await sleep(4000 * (attempt + 1));
+      else if (attempt >= 1) break;
     }
   }
-  throw new Error(`AI output invalid after retry: ${String(lastErr)}`);
+  throw new Error(`AI call failed: ${String(lastErr).slice(0, 200)}`);
 }
 
 // ---------- Layer 2: LLM injection classifier ----------

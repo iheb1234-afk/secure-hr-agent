@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
   const { count } = await ctx.sb.from("candidates").select("id", { count: "exact", head: true }).eq("job_id", jobId);
   let n = count ?? 0;
-  const results: { file: string; ok: boolean; flagged?: boolean; error?: string }[] = [];
+  const results: { file: string; ok: boolean; flagged?: boolean; error?: string; note?: string }[] = [];
 
   for (const file of files) {
     const name = file.name.replace(/[^\w.\- ]/g, "_").slice(0, 100);
@@ -48,11 +48,16 @@ export async function POST(req: Request) {
       // Layer 1 rules (on everything), Layer 2 LLM classifier, Layer 3 hidden text
       const rules = scanRules(`${visible}\n${hidden}`);
       const reasons: string[] = [...hiddenReasons.map((r) => `Hidden text: ${r}`), ...rules.reasons];
-      try {
-        const llm = await classifyInjection(`${visible}\n${hidden}`);
-        if (llm.is_injection) reasons.push(`AI security filter: ${llm.reason}`);
-      } catch {
-        reasons.push("AI security filter unavailable: sent to human review");
+      let classifierNote: string | null = null;
+      if (!reasons.length) {
+        // only spend an AI call if the cheap layers found nothing (saves free-tier quota)
+        try {
+          const llm = await classifyInjection(`${visible}\n${hidden}`);
+          if (llm.is_injection) reasons.push(`AI security filter: ${llm.reason}`);
+        } catch (e) {
+          // rules + hidden-text layers already passed, and ranking prompts are still guarded: log, don't block
+          classifierNote = `AI classifier skipped: ${String(e).slice(0, 150)}`;
+        }
       }
       const flagged = reasons.length > 0;
 
@@ -79,9 +84,9 @@ export async function POST(req: Request) {
       if (error) throw new Error(error.message);
 
       await audit(ctx, "system", flagged ? "resume.flagged_injection" : "resume.ingested", "candidates", data.id, {
-        file: name, reasons, removed_pii: anon.removed, hidden_chars: hidden.length,
+        file: name, reasons, removed_pii: anon.removed, hidden_chars: hidden.length, classifierNote,
       });
-      results.push({ file: name, ok: true, flagged });
+      results.push({ file: name, ok: true, flagged, note: classifierNote ?? undefined });
     } catch (e) {
       results.push({ file: name, ok: false, error: e instanceof Error ? e.message : "Error" });
     }

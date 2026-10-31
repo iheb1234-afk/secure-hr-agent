@@ -20,7 +20,7 @@ export async function POST(req: Request) {
 
   // Flagged resumes are NEVER auto-ranked: only 'new' ones
   const { data: cands } = await ctx.sb
-    .from("candidates").select("id,code,anonymized_text").eq("job_id", jobId).eq("status", "new").limit(15);
+    .from("candidates").select("id,code,anonymized_text").eq("job_id", jobId).eq("status", "new").limit(8);
   if (!cands?.length) return NextResponse.json({ ranked: 0, remaining: 0 });
 
   let ranked = 0;
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       }
     }
   };
-  await Promise.all([worker(), worker(), worker()]); // 3 in parallel
+  await Promise.all([worker(), worker()]); // 2 in parallel (free-tier friendly)
 
   const { count } = await ctx.sb.from("candidates").select("id", { count: "exact", head: true }).eq("job_id", jobId).eq("status", "new");
   return NextResponse.json({ ranked, remaining: count ?? 0, errors });

@@ -56,7 +56,8 @@ export default function Dashboard() {
     else {
       const flagged = j.results.filter((r: { flagged?: boolean }) => r.flagged).length;
       const failed = j.results.filter((r: { ok: boolean }) => !r.ok);
-      setMsg(`${j.results.length - failed.length} ingested · ${flagged} flagged 🚩${failed.length ? ` · ${failed.length} rejected: ${failed.map((f: { file: string; error: string }) => `${f.file} (${f.error})`).join(", ")}` : ""}`);
+      const note = j.results.find((r: { note?: string }) => r.note)?.note;
+      setMsg(`${note ? `⚠️ ${note} · ` : ""}${j.results.length - failed.length} ingested · ${flagged} flagged 🚩${failed.length ? ` · ${failed.length} rejected: ${failed.map((f: { file: string; error: string }) => `${f.file} (${f.error})`).join(", ")}` : ""}`);
     }
     setBusy(""); loadCands();
   }
@@ -68,9 +69,10 @@ export default function Dashboard() {
       setMsg(`AI is ranking anonymized resumes… ${total} done`);
       const res = await fetch("/api/rank", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobId }) });
       const j = await res.json();
-      if (!res.ok) { setMsg(j.error); break; }
+      if (!res.ok) { setMsg(j.error); setBusy(""); return; }
       total += j.ranked; remaining = j.ranked === 0 ? 0 : j.remaining;
       await loadCands();
+      if (j.ranked === 0 && j.errors?.length) { setMsg(`AI error: ${j.errors[0]}`); setBusy(""); return; }
     }
     setMsg(`Ranking done (${total} resumes). Review and decide.`);
     setBusy("");
@@ -81,6 +83,15 @@ export default function Dashboard() {
     const res = await fetch(`/api/candidates/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
     const j = await res.json();
     setMsg(j.warning ?? (action === "release" ? "Released for ranking (visible text only)." : "Decision saved. Draft reply waiting in the Approval queue."));
+    setBusy(""); loadCands();
+  }
+
+  async function reset() {
+    if (!window.confirm || !confirm("Delete all candidates of this job? (admin only)")) return;
+    setBusy("reset");
+    const res = await fetch("/api/jobs/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobId }) });
+    const j = await res.json();
+    setMsg(res.ok ? `Reset: ${j.deleted} candidates deleted.` : j.error);
     setBusy(""); loadCands();
   }
 
@@ -108,6 +119,7 @@ export default function Dashboard() {
             <button onClick={rank} disabled={!!busy || !pending.length} className="rounded bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-700 disabled:opacity-40">
               Rank {pending.length} resumes with AI
             </button>
+            {cands.length > 0 && <button onClick={reset} disabled={!!busy} className="ml-auto rounded border px-3 py-2 text-xs text-slate-500 hover:bg-slate-100">Reset demo</button>}
           </>
         )}
         {msg && <p className="w-full text-sm text-slate-600">{busy && "⏳ "}{msg}</p>}
