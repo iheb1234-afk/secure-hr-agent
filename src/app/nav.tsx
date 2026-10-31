@@ -82,7 +82,7 @@ export default function Nav({ groups, email, role }: { groups: Group[]; email: s
           <span className="font-semibold">HireGuard</span>
           <form action="/api/logout" method="post" className="ml-auto"><button className="text-xs text-white/60">Log out</button></form>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-2 text-sm">
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-2 text-sm [scrollbar-width:none]">
           {all.map((it) => (
             <Link key={it.href} href={it.href} className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 ${active(it.href) ? "bg-white/15 text-white" : "text-white/70"}`}>
               {it.label}

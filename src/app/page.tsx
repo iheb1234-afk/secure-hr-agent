@@ -124,10 +124,10 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end gap-x-6 gap-y-4">
-        <div className="min-w-0 flex-1">
+        <div className="w-full min-w-0 xl:w-auto xl:flex-1">
           <label htmlFor="job" className="text-sm text-ink-3">Screening for</label>
           {jobs.length ? (
-            <select id="job" className="-ml-1 block max-w-full cursor-pointer truncate rounded-md bg-transparent py-0.5 pr-2 text-[1.75rem] font-semibold leading-tight text-ink hover:bg-wash focus:outline-none"
+            <select id="job" className="-ml-1 block w-full cursor-pointer whitespace-normal rounded-md bg-transparent py-0.5 pr-2 text-[1.5rem] font-semibold leading-tight text-ink hover:bg-wash focus:outline-none md:text-[1.75rem]"
               value={jobId} onChange={(e) => setJobId(e.target.value)}>
               {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
             </select>

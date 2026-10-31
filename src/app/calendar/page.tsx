@@ -39,9 +39,9 @@ export default function Calendar() {
         </p>
       </header>
       <div className="flex flex-wrap gap-4 text-xs text-ink-2">
-        <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded-sm border-l-2 border-l-ink-3/40 bg-wash" />Busy</span>
-        <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded-sm border-l-2 border-l-ai bg-ai-soft outline-1 outline-dashed outline-ai/40" />Hold, waiting for the candidate</span>
-        <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded-sm border-l-2 border-l-human bg-human-soft" />Confirmed by you</span>
+        <span className="flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-sm border-l-2 border-l-ink-3/40 bg-wash" />Busy</span>
+        <span className="flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-sm border-l-2 border-l-ai bg-ai-soft outline-1 outline-dashed outline-ai/40" />Hold, waiting for the candidate</span>
+        <span className="flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-sm border-l-2 border-l-human bg-human-soft" />Confirmed by you</span>
       </div>
       {!events.length && <p className="panel px-5 py-10 text-center text-sm text-ink-2">No events. Run supabase/migration_02_scheduling.sql to load the demo calendar.</p>}
       <div className="grid gap-px overflow-hidden rounded-[10px] border bg-line md:grid-cols-5">
