@@ -82,7 +82,8 @@ export function rankResume(job: { title: string; description: string; criteria: 
   return callJSON(
     `You are an objective recruiting assistant. Score how well an anonymized resume matches a job, from 0 to 100, using ONLY the job criteria below.
 Never consider name, gender, age, origin, address, photo, marital status or anything not related to the job.
-Justification: 2-3 short sentences citing concrete evidence from the resume and the criteria. Be strict and consistent.`,
+Justification: 2-3 short sentences citing concrete evidence from the resume and the criteria. Be strict and consistent.
+Scoring scale: 90-100 = exceptional, exceeds every criterion with measurable achievements (rare); 75-89 = strong match; 50-74 = partial; below 50 = weak. Reserve 100 for a perfect fit and differentiate candidates using measurable impact and depth of experience.`,
     `JOB: ${job.title}\n${job.description}\nCRITERIA:\n${job.criteria.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n\nRESUME:\n${wrap(anonymizedText)}`,
     RankSchema
   );
@@ -107,7 +108,7 @@ export function draftReply(
 ) {
   return callJSON(
     `You write professional, warm recruiting emails in English for a Tunisian company.
-Use ONLY facts from THIS candidate's file below. Do not invent facts. Address the candidate as {{candidate_name}} (a placeholder filled in later). Sign as "The Recruitment Team". Max 150 words.`,
+Use ONLY facts from THIS candidate's file below. Do not invent facts. Address the candidate as {{candidate_name}} (a placeholder filled in later). Sign as "The Recruitment Team". Max 150 words. Format the body as a real email with line breaks: greeting line, 2-3 short paragraphs, sign-off.`,
     `GOAL: ${KIND_GOAL[kind]}\nJOB: ${job.title}\nRECRUITER NOTES: ${candidate.justification ?? "-"}\nMISSING INFO: ${candidate.missing.join(", ") || "-"}\n\nCANDIDATE FILE:\n${wrap(candidate.anonymizedText)}`,
     DraftSchema
   );
