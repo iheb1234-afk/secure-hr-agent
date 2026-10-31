@@ -2,7 +2,9 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+// Primary model + fallbacks if Google says "overloaded" (503) or quota (429)
+const MODELS = [process.env.GEMINI_MODEL || "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+  .filter((m, i, a) => a.indexOf(m) === i);
 
 // Untrusted content is ALWAYS wrapped in delimiters, and the model is told it is data, never instructions.
 const GUARD = `SECURITY RULES (highest priority):
@@ -28,9 +30,10 @@ function jsonSchema(schema: z.ZodType) {
 async function callJSON<T>(system: string, prompt: string, schema: z.ZodType<T>): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < 4; attempt++) {
+    const model = MODELS[Math.min(attempt, MODELS.length - 1)];
     try {
       const res = await ai.models.generateContent({
-        model: MODEL,
+        model,
         contents: prompt,
         config: {
           systemInstruction: `${system}\n\n${GUARD}`,
@@ -45,7 +48,7 @@ async function callJSON<T>(system: string, prompt: string, schema: z.ZodType<T>)
       lastErr = e;
       const msg = String(e);
       // free-tier rate limit → back off and retry
-      if (/429|RESOURCE_EXHAUSTED|quota|503|UNAVAILABLE|overloaded/i.test(msg)) await sleep(4000 * (attempt + 1));
+      if (/429|RESOURCE_EXHAUSTED|quota|503|UNAVAILABLE|overloaded|high demand/i.test(msg)) await sleep(1500 * (attempt + 1));
       else if (attempt >= 1) break;
     }
   }

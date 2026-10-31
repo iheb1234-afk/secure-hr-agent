@@ -3,10 +3,11 @@ import { GoogleGenAI } from "@google/genai";
 import { requireUser } from "@/lib/supabase/server";
 
 // Logged-in only: quick check that the AI key + model work (no retries)
-export async function GET() {
+export async function GET(req: Request) {
   const ctx = await requireUser();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const q = new URL(req.url).searchParams.get("model");
+  const model = q && /^[\w.-]{3,40}$/.test(q) ? q : process.env.GEMINI_MODEL || "gemini-3.8-flash";
   const t = Date.now();
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
