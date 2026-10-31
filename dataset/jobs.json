@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Full-Stack Developer (React / Node.js)",
+    "description": "Tunis-based SaaS startup hiring a full-stack developer to build and maintain a B2B web platform. Hybrid, 3 days on site.",
+    "criteria": [
+      "2+ years of professional experience in web development",
+      "Strong React and TypeScript skills",
+      "Node.js / REST API development",
+      "SQL database experience (PostgreSQL preferred)",
+      "Git and code review practices",
+      "Bonus: cloud deployment (Docker, AWS, Vercel)",
+      "Professional French and English"
+    ]
+  },
+  {
+    "title": "Data Analyst",
+    "description": "Retail group looking for a data analyst to build dashboards and analyse sales data.",
+    "criteria": [
+      "Degree in statistics, computer science or business analytics",
+      "SQL and Python (pandas)",
+      "Power BI or Tableau dashboards",
+      "1+ year of analytics experience",
+      "Clear communication with business teams"
+    ]
+  }
+]
