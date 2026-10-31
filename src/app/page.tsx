@@ -46,19 +46,26 @@ export default function Dashboard() {
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
-    setBusy("upload"); setMsg(`Scanning ${files.length} resumes for hidden text & injections…`);
-    const fd = new FormData();
-    fd.append("jobId", jobId);
-    Array.from(files).forEach((f) => fd.append("files", f));
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    const j = await res.json();
-    if (!res.ok) setMsg(j.error);
-    else {
-      const flagged = j.results.filter((r: { flagged?: boolean }) => r.flagged).length;
-      const failed = j.results.filter((r: { ok: boolean }) => !r.ok);
-      const note = j.results.find((r: { note?: string }) => r.note)?.note;
-      setMsg(`${note ? `⚠️ ${note} · ` : ""}${j.results.length - failed.length} ingested · ${flagged} flagged 🚩${failed.length ? ` · ${failed.length} rejected: ${failed.map((f: { file: string; error: string }) => `${f.file} (${f.error})`).join(", ")}` : ""}`);
+    setBusy("upload");
+    const all = Array.from(files);
+    type R = { file: string; ok: boolean; flagged?: boolean; error?: string; note?: string };
+    const results: R[] = [];
+    // batches of 5 so each request stays under the serverless time limit
+    for (let i = 0; i < all.length; i += 5) {
+      setMsg(`Scanning resumes for hidden text & injections… ${i}/${all.length}`);
+      const fd = new FormData();
+      fd.append("jobId", jobId);
+      all.slice(i, i + 5).forEach((f) => fd.append("files", f));
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const j = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+      if (!res.ok) { setMsg(j.error); setBusy(""); loadCands(); return; }
+      results.push(...j.results);
+      loadCands();
     }
+    const flagged = results.filter((r) => r.flagged).length;
+    const failed = results.filter((r) => !r.ok);
+    const note = results.find((r) => r.note)?.note;
+    setMsg(`${note ? `⚠️ ${note} · ` : ""}${results.length - failed.length} ingested · ${flagged} flagged 🚩${failed.length ? ` · ${failed.length} rejected: ${failed.map((f) => `${f.file} (${f.error})`).join(", ")}` : ""}`);
     setBusy(""); loadCands();
   }
 

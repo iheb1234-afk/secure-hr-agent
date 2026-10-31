@@ -7,9 +7,9 @@ import { classifyInjection } from "@/lib/ai/gemini";
 import { rateLimit } from "@/lib/security/ratelimit";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
-const MAX_FILES = 30;
+const MAX_FILES = 5; // per request (client sends batches)
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 
 export async function POST(req: Request) {
