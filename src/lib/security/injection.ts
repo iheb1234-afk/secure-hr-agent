@@ -12,8 +12,13 @@ const PATTERNS: { re: RegExp; label: string }[] = [
   { re: /(give|assign)\s+(this|me|the)\s+(candidate|resume|cv)?\s*(the\s+)?(maximum|max|highest|perfect|full)\s+score/i, label: "Asks for a specific ranking or score" },
   { re: /(shortlist|hire|select|pass)\s+me\b/i, label: "Asks the AI to take a hiring decision" },
   { re: /\b(system|admin)\s+(note|prompt|message|override)\b/i, label: "Fake system / admin message" },
-  { re: /(send|reveal|show|list)\s+(me\s+)?(the\s+)?(other|all)\s+(candidates|applicants|resumes)/i, label: "Tries to exfiltrate other candidates' data" },
-  { re: /<\/?(system|instructions?|resume|prompt)>/i, label: "Tries to break out of the data delimiters" },
+  { re: /(send|reveal|show|list|give)\s+(me\s+)?(the\s+)?(list\s+of\s+)?(the\s+)?(other|all)\s+(candidates|applicants|resumes)/i, label: "Tries to exfiltrate other candidates' data" },
+  { re: /<\/?(system|instructions?|resume|prompt|untrusted_document)>/i, label: "Tries to break out of the data delimiters" },
+  { re: /\b(score|rating)\s*[:=]\s*100\b/i, label: "Asks for a specific ranking or score" },
+  // French (Tunisian CVs are often in French)
+  { re: /ignore[rz]?\s+(toutes\s+)?(les\s+)?instructions\s+(précédentes|precedentes|ci-dessus)/i, label: "Tries to override the AI's instructions (FR)" },
+  { re: /(classe[rz]?|note[rz]?)\s+(ce|cette|moi)\s+(candidat|candidate|cv)?\s*(en\s+)?(premier|première|premiere|100|maximum)/i, label: "Asks for a specific ranking or score (FR)" },
+  { re: /\bsi\s+(tu\s+es|vous\s+êtes|vous\s+etes)\s+(une?\s+)?(ia|intelligence artificielle|bot|robot)/i, label: "Text addressed to the AI, not to a human (FR)" },
 ];
 
 export type RuleResult = { flagged: boolean; reasons: string[]; matches: string[] };
