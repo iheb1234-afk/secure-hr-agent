@@ -39,8 +39,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       let body = d.body;
       if (slots.length) {
         const list = slots.map((s, i) => `  Option ${i + 1}: ${s.label}`).join("\n");
-        body = body.includes("{{slots}}") ? body.replace("{{slots}}", list) : `${body}\n\nProposed slots:\n${list}`;
-      } else body = body.replace("{{slots}}", "");
+        const SLOTS_PH = /\{\{\s*slots\s*\}\}/i;
+        body = SLOTS_PH.test(body) ? body.replace(SLOTS_PH, list) : `${body}\n\nProposed slots:\n${list}`;
+      } else body = body.replace(/\{\{\s*slots\s*\}\}/gi, "");
       const { data: draft } = await ctx.sb.from("drafts")
         .insert({ candidate_id: id, kind: a.draft, subject: d.subject, body, slots }).select("id").single();
       await audit(ctx, "ai", "draft.created", "drafts", draft?.id ?? null, { code: c.code, kind: a.draft });

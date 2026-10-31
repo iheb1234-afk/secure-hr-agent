@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser, audit } from "@/lib/supabase/server";
 import { scanRules } from "@/lib/security/injection";
-import { searchPolicies, sensitiveTopic } from "@/lib/policy-search";
+import { searchPolicies, sensitiveTopic, ungroundedNumbers } from "@/lib/policy-search";
 import { answerFromPolicies } from "@/lib/ai/gemini";
 import { rateLimit } from "@/lib/security/ratelimit";
 
@@ -44,8 +44,14 @@ export async function POST(req: Request) {
     const cited = excerpts.filter((e) => r.cited.includes(e.ref)); // ignore any reference the AI invented
     if (!r.answerable || !cited.length)
       return save({ answer: "I couldn't find this in the company policies, so I won't guess. Your question has been forwarded to HR.", sources: [], status: "escalated", reason: "Not covered by the policy documents" });
+    const answer = r.answer.replace(/\[P\d\]/g, "").trim();
+    const invented = ungroundedNumbers(answer, cited.map((c) => c.content), question);
+    if (invented.length) {
+      return save({ answer: "I couldn't verify every detail of my answer against the handbook, so I won't risk a wrong answer. Your question has been forwarded to HR.",
+        sources: [], status: "escalated", reason: `Fact-check failed: ${invented.join(", ")} not found in the cited policy (possible hallucination)` });
+    }
     return save({
-      answer: r.answer.replace(/\[P\d\]/g, "").trim(),
+      answer,
       sources: cited.map((c) => ({ title: c.title, excerpt: c.content })),
       status: "answered", reason: null,
     });

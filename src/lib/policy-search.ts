@@ -45,3 +45,12 @@ export function sensitiveTopic(question: string): string | null {
   for (const s of SENSITIVE) if (s.re.test(question)) return s.why;
   return null;
 }
+
+// Grounding check (inspired by LLM Guard's FactualConsistency): every number in the AI's answer
+// must appear in the cited handbook text or in the question itself. Otherwise it may be invented.
+const NUM = /\d+(?:[.,\s]\d{3})*(?:[.,]\d+)?/g;
+const norm = (n: string) => n.replace(/[\s,](?=\d{3}\b)/g, "").replace(",", ".");
+export function ungroundedNumbers(answer: string, sources: string[], question: string): string[] {
+  const allowed = new Set([...`${sources.join(" ")} ${question}`.matchAll(NUM)].map((m) => norm(m[0])));
+  return [...new Set([...answer.matchAll(NUM)].map((m) => norm(m[0])))].filter((n) => !allowed.has(n));
+}

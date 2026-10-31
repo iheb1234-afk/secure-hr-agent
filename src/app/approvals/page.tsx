@@ -13,6 +13,7 @@ export default function Approvals() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [edits, setEdits] = useState<Record<string, { subject: string; body: string }>>({});
   const [busy, setBusy] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const { data } = await sb.from("drafts").select("*, candidates(code, full_name, email)").order("created_at", { ascending: false });
@@ -23,10 +24,12 @@ export default function Approvals() {
   async function decide(d: Draft, action: "approve" | "discard") {
     setBusy(d.id);
     const e = edits[d.id];
-    await fetch(`/api/drafts/${d.id}`, {
+    const r = await fetch(`/api/drafts/${d.id}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, ...(e ?? {}) }),
     });
+    const j = await r.json().catch(() => ({}));
+    setErrors({ ...errors, [d.id]: r.ok ? "" : j.error ?? "Error" });
     setBusy(""); load();
   }
 
@@ -58,6 +61,7 @@ export default function Approvals() {
               <button onClick={() => decide(d, "discard")} disabled={!!busy} className="rounded border px-3 py-1.5 text-sm">Discard</button>
               {edits[d.id] && <span className="self-center text-xs text-amber-600">edited by you</span>}
             </div>
+            {errors[d.id] && <p className="text-sm text-red-600">🛑 {errors[d.id]}</p>}
           </div>
         );
       })}

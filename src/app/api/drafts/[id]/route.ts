@@ -28,8 +28,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const edited = (subject && subject !== d.subject) || (body && body !== d.body);
   const name = d.candidates.full_name ?? "Candidate";
-  const finalBody = (body ?? d.body).replaceAll("{{candidate_name}}", name);
-  const finalSubject = (subject ?? d.subject).replaceAll("{{candidate_name}}", name);
+  // Tolerant matching: the AI sometimes alters the placeholder ({{ Candidate_Name }}, {{candidate name}}…)
+  const NAME_PH = /\{\{\s*candidate[\s_-]*name\s*\}\}|\[\s*candidate[\s_-]*name\s*\]/gi;
+  const finalBody = (body ?? d.body).replace(NAME_PH, name);
+  const finalSubject = (subject ?? d.subject).replace(NAME_PH, name);
+
+  // Output check: never send an email that still contains a placeholder
+  const leftover = `${finalSubject}\n${finalBody}`.match(/\{\{[^}]*\}\}|\[(?:CANDIDATE|EMAIL|PHONE|ADDRESS|LINK|REMOVED)\]/);
+  if (leftover) {
+    await audit(ctx, "system", "draft.send_blocked_placeholder", "drafts", id, { code: d.candidates.code, placeholder: leftover[0] });
+    return NextResponse.json({ error: `Not sent: the email still contains "${leftover[0]}". Edit it, then approve again.` }, { status: 422 });
+  }
 
   await ctx.sb.from("drafts").update({
     status: "sent", subject: finalSubject, body: finalBody, decided_by: ctx.user.id, decided_at: new Date().toISOString(),
