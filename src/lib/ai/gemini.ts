@@ -48,7 +48,7 @@ async function callJSON<T>(system: string, prompt: string, schema: z.ZodType<T>)
       lastErr = e;
       const msg = String(e);
       // free-tier rate limit → back off and retry
-      if (/429|RESOURCE_EXHAUSTED|quota|503|UNAVAILABLE|overloaded|high demand/i.test(msg)) await sleep(1500 * (attempt + 1));
+      if (/429|RESOURCE_EXHAUSTED|quota|503|UNAVAILABLE|overloaded|high demand/i.test(msg)) await sleep(/429|RESOURCE_EXHAUSTED|quota/i.test(msg) ? 15000 : 1500 * (attempt + 1));
       else if (attempt >= 1) break;
     }
   }

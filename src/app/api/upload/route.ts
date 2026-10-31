@@ -7,7 +7,7 @@ import { classifyInjection } from "@/lib/ai/gemini";
 import { rateLimit } from "@/lib/security/ratelimit";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const MAX_FILES = 30;
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
       if (!reasons.length) {
         // only spend an AI call if the cheap layers found nothing (saves free-tier quota)
         try {
+          await new Promise((r) => setTimeout(r, 4200)); // free tier = 15 calls/min
           const llm = await classifyInjection(`${visible}\n${hidden}`);
           if (llm.is_injection) reasons.push(`AI security filter: ${llm.reason}`);
         } catch (e) {

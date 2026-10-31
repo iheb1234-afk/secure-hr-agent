@@ -20,7 +20,7 @@ export async function POST(req: Request) {
 
   // Flagged resumes are NEVER auto-ranked: only 'new' ones
   const { data: cands } = await ctx.sb
-    .from("candidates").select("id,code,anonymized_text").eq("job_id", jobId).eq("status", "new").limit(8);
+    .from("candidates").select("id,code,anonymized_text").eq("job_id", jobId).eq("status", "new").limit(6);
   if (!cands?.length) return NextResponse.json({ ranked: 0, remaining: 0 });
 
   let ranked = 0;
@@ -36,12 +36,13 @@ export async function POST(req: Request) {
         }).eq("id", c.id);
         await audit(ctx, "ai", "resume.ranked", "candidates", c.id, { code: c.code, score: r.score });
         ranked++;
+        if (queue.length) await new Promise((r) => setTimeout(r, 4200));
       } catch (e) {
         errors.push(`${c.code}: ${e instanceof Error ? e.message.slice(0, 120) : "error"}`);
       }
     }
   };
-  await Promise.all([worker(), worker()]); // 2 in parallel (free-tier friendly)
+  await worker(); // one at a time, spaced: free tier = 15 calls/min
 
   const { count } = await ctx.sb.from("candidates").select("id", { count: "exact", head: true }).eq("job_id", jobId).eq("status", "new");
   return NextResponse.json({ ranked, remaining: count ?? 0, errors });
