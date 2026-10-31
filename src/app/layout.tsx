@@ -17,6 +17,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <nav className="flex gap-4 text-sm">
                 <Link href="/" className="hover:text-indigo-700">Candidates</Link>
                 <Link href="/approvals" className="hover:text-indigo-700">Approval queue</Link>
+                <Link href="/inbox" className="hover:text-indigo-700">Inbox</Link>
                 <Link href="/calendar" className="hover:text-indigo-700">Calendar</Link>
                 <Link href="/security" className="hover:text-indigo-700">Security Lab</Link>
                 {ctx.role === "admin" && <Link href="/audit" className="hover:text-indigo-700">Audit log</Link>}

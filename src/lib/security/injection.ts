@@ -4,7 +4,7 @@
  *  Layer 4 = untrusted content is delimited and the model is told never to obey it.)
  */
 const PATTERNS: { re: RegExp; label: string }[] = [
-  { re: /ignore\s+(all\s+)?(the\s+)?(previous|prior|above|earlier)\s+(instructions|prompts|rules)/i, label: "Tries to override the AI's instructions" },
+  { re: /ignore\s+(all\s+)?(of\s+)?(the\s+|your\s+|my\s+|any\s+)?(previous|prior|above|earlier|former)\s+(instructions|prompts|rules)/i, label: "Tries to override the AI's instructions" },
   { re: /disregard\s+(the\s+)?(job\s+)?(criteria|instructions|rules|requirements)/i, label: "Tries to make the AI ignore the job criteria" },
   { re: /\b(you are|if you are)\s+(an?\s+)?(ai|llm|language model|chatbot|bot|assistant|agentic)/i, label: "Text addressed to the AI, not to a human" },
   { re: /(note|message|instruction)s?\s+(to|for)\s+(the\s+)?(ai|llm|bot|model|recruit(er|ing)\s+(ai|bot|tool))/i, label: "Text addressed to the AI, not to a human" },
@@ -12,7 +12,8 @@ const PATTERNS: { re: RegExp; label: string }[] = [
   { re: /(give|assign)\s+(this|me|the)\s+(candidate|resume|cv)?\s*(the\s+)?(maximum|max|highest|perfect|full)\s+score/i, label: "Asks for a specific ranking or score" },
   { re: /(shortlist|hire|select|pass)\s+me\b/i, label: "Asks the AI to take a hiring decision" },
   { re: /\b(system|admin)\s+(note|prompt|message|override)\b/i, label: "Fake system / admin message" },
-  { re: /(send|reveal|show|list|give)\s+(me\s+)?(the\s+)?(list\s+of\s+)?(the\s+)?(other|all)\s+(candidates|applicants|resumes)/i, label: "Tries to exfiltrate other candidates' data" },
+  { re: /(send|reveal|show|list|give|forward|share|export)\s+(me\s+)?(the\s+)?(list\s+of\s+)?(the\s+)?(other|all)\s+(the\s+)?(candidates?|applicants?|resumes|cvs|personal data)/i, label: "Tries to exfiltrate other candidates' data" },
+  { re: /\b(ai|llm|gpt|chatbot)\s+(assistant|agent|bot|model|system)?\s*(reading|processing|analy[sz]ing|screening)\s+this/i, label: "Text addressed to the AI, not to a human" },
   { re: /<\/?(system|instructions?|resume|prompt|untrusted_document)>/i, label: "Tries to break out of the data delimiters" },
   { re: /\b(score|rating)\s*[:=]\s*100\b/i, label: "Asks for a specific ranking or score" },
   // French (Tunisian CVs are often in French)
