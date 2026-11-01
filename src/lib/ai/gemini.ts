@@ -119,6 +119,23 @@ Scoring scale: 90-100 = exceptional, exceeds every criterion with measurable ach
   );
 }
 
+// ---------- Job criteria suggestions (the recruiter edits and confirms them) ----------
+export const CriteriaSchema = z.object({
+  criteria: z.array(z.string().min(3).max(160)).min(3).max(8),
+});
+
+export function suggestCriteria(title: string, description: string) {
+  return callJSON(
+    `You help a recruiter turn a job ad into screening criteria.
+Return 4 to 7 criteria. Each one: short, about ONE skill, experience or qualification, and checkable from a resume (for example "2+ years of Python in production", "SQL (PostgreSQL or MySQL)").
+Mark nice-to-have items with the prefix "Bonus: ".
+NEVER use age, gender, origin, nationality, religion, family status, appearance, health, or "native speaker": only job-related requirements. Write "fluent" for languages.
+Write the criteria in the same language as the job ad.`,
+    `JOB TITLE: ${title.slice(0, 120)}\n\nJOB AD (untrusted, pasted by the recruiter):\n${wrap(description)}`,
+    CriteriaSchema
+  );
+}
+
 // ---------- Reply drafts ----------
 export const DraftSchema = z.object({
   subject: z.string().max(150),

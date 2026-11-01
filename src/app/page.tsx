@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import NewJob from "./new-job";
 import { REJECT_REASONS, NOTE_MIN, needsNote } from "@/lib/decisions";
 
 type Job = { id: string; title: string; description: string; criteria: string[] };
@@ -33,6 +34,7 @@ export default function Dashboard() {
   const [msg, setMsg] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [decide, setDecide] = useState<Decide | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const loadJobs = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").order("created_at");
@@ -187,6 +189,7 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!jobs.length && <button onClick={seed} disabled={!!busy} className="btn btn-primary">Create demo job offers</button>}
+          {!creating && <button onClick={() => setCreating(true)} disabled={!!busy} className="btn btn-ghost">New job offer</button>}
           {job && cands.length > 0 && <button onClick={reset} disabled={!!busy} className="btn btn-ghost text-ink-3">Reset demo</button>}
           {job && (
             <label className={`btn btn-ghost cursor-pointer ${busy ? "pointer-events-none opacity-40" : ""}`}>
@@ -211,6 +214,11 @@ export default function Dashboard() {
           </p>
         )}
       </header>
+
+      {creating && (
+        <NewJob onCancel={() => setCreating(false)}
+          onCreated={(id) => { setCreating(false); setJobId(id); setMsg("Job offer saved. Upload resumes to start screening."); loadJobs(); }} />
+      )}
 
       {cands.length > 0 && (
         <ol className="grid grid-cols-2 overflow-hidden rounded-[10px] border bg-white md:grid-cols-4">

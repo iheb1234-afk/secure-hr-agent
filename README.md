@@ -20,6 +20,8 @@ It is also built to be attacked. Candidates can hide instructions in a resume ("
 | **Inbox summary** | The HR inbox is sorted by type and urgency, with a one-line summary per email and a "needs your answer" flag. Emails are scanned for manipulation first; phishing is grouped apart. | The AI never replies to an email. |
 | **Employee Q&A** | Answers come only from the company handbook, with the passage quoted. Numbers in the answer are checked against the source. Personal, confidential or unknown topics are not answered: they go to HR. | HR answers escalated questions. |
 
+**Job offers**: the recruiter creates a job offer with its criteria. The AI can suggest criteria from the job ad; the recruiter edits and confirms them. Criteria about age, gender, origin, religion, family status, appearance or health are refused by code, and the text is scanned for manipulation (it goes into the ranking prompt).
+
 Plus a **Security Lab** (live defense numbers, tests anyone can run, and an attack playground where you type your own attack and see which layer catches it) and an **Audit log** (admin only, with a "Threats only" view).
 
 ## Security design
