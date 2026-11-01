@@ -168,9 +168,11 @@ export default function Dashboard() {
   const pending = cands.filter((c) => c.status === "new");
   const closedUnranked = cands.filter((c) => c.status === "rejected" && c.score === null);
   const decided = cands.filter((c) => ["shortlisted", "rejected", "review"].includes(c.status)).length;
+  // every resume ever caught, including the ones a human has since rejected or released
+  const caught = cands.filter((c) => c.injection_flag).length;
   const steps = [
     { n: cands.length, label: "Scanned for hidden text and manipulation" },
-    { n: flagged.length, label: "Quarantined, never shown to the ranking AI", tone: "text-block" },
+    { n: caught, label: "Caught trying to manipulate the AI", tone: "text-block" },
     { n: ranked.length, label: "Scored by the AI on anonymized text", tone: "text-ai" },
     { n: decided, label: "Decided by a human", tone: "text-human" },
   ];
@@ -277,7 +279,13 @@ export default function Dashboard() {
         <ul className="divide-y">
           {ranked.map((c, i) => {
             const st = STATUS[c.status] ?? STATUS.new;
-            const total = (c.matched_criteria?.length ?? 0) + (c.missing_criteria?.length ?? 0);
+            // count against the job's own criteria (the AI sometimes splits one criterion in two)
+            const crit = job?.criteria ?? [];
+            const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+            const matchedSet = new Set((c.matched_criteria ?? []).map(norm));
+            let met = crit.filter((cr) => matchedSet.has(norm(cr))).length;
+            if (!met && matchedSet.size) met = Math.min(matchedSet.size, crit.length); // AI paraphrased: fall back to its count
+            const total = crit.length;
             return (
               <li key={c.id} className="px-5 py-4">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -292,10 +300,10 @@ export default function Dashboard() {
                       <span className="ml-3 inline-flex items-center gap-2 text-xs text-ink-2">
                         <span className="flex gap-[3px]" aria-hidden>
                           {Array.from({ length: total }, (_, k) => (
-                            <i key={k} className={`h-2 w-2 rounded-full ${k < c.matched_criteria.length ? "bg-human" : "ring-1 ring-inset ring-ink-3/50"}`} />
+                            <i key={k} className={`h-2 w-2 rounded-full ${k < met ? "bg-human" : "ring-1 ring-inset ring-ink-3/50"}`} />
                           ))}
                         </span>
-                        {c.matched_criteria.length} of {total} criteria met
+                        {met} of {total} criteria met
                       </span>
                     )}
                   </div>
