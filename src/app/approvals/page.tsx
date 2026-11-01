@@ -8,7 +8,7 @@ type Draft = {
   id: string; kind: string; subject: string; body: string; status: string; created_at: string; decided_at: string | null;
   candidates: { code: string; full_name: string | null; email: string | null };
 };
-const KIND: Record<string, string> = { invite: "Interview invite", rejection: "Rejection", request_info: "Request for information" };
+const KIND: Record<string, string> = { invite: "Interview invite", rejection: "Rejection", request_info: "Request for information", follow_up: "Follow-up reminder" };
 
 export default function Approvals() {
   const sb = supabaseBrowser();
@@ -49,7 +49,7 @@ export default function Approvals() {
       {!pending.length && (
         <div className="panel px-5 py-10 text-center">
           <p className="font-medium">Nothing waiting for you.</p>
-          <p className="mt-1 text-sm text-ink-2">Shortlist, reject or ask for info on the Candidates page and the AI drafts the reply here.</p>
+          <p className="mt-1 text-sm text-ink-2">Shortlist, reject or ask for info on the Candidates page (or prepare a reminder on Follow-ups) and the AI drafts the reply here.</p>
         </div>
       )}
 

@@ -106,17 +106,24 @@ const KIND_GOAL: Record<string, string> = {
   invite: "Invite the candidate to a 45-minute first interview next week. Put the exact placeholder {{slots}} alone on its own line where the proposed time options go (they are inserted later by the system), and ask the candidate to reply with the option that suits them.",
   rejection: "Politely decline the application, thank them, and mention one concrete strength from their file. Kind, respectful, no false hope.",
   request_info: "Ask the candidate for the missing information listed below before a decision is taken.",
+  follow_up: "Write a short, friendly reminder (max 90 words): we wrote to the candidate earlier (see FOLLOW-UP CONTEXT) and have not heard back. Restate in one sentence what we need from them. No pressure, no guilt, no deadline threats; say they can simply reply to this email.",
 };
 
+export type FollowUpContext = { originalKind: string; originalSubject: string; daysWaiting: number; reminderNumber: number; hasSlots: boolean };
+
 export function draftReply(
-  kind: "invite" | "rejection" | "request_info",
+  kind: "invite" | "rejection" | "request_info" | "follow_up",
   job: { title: string },
-  candidate: { anonymizedText: string; justification: string | null; missing: string[] }
+  candidate: { anonymizedText: string; justification: string | null; missing: string[] },
+  followUp?: FollowUpContext
 ) {
+  // trusted context built by our own code (the original subject is wrapped below as untrusted)
+  const fu = followUp ? `\nFOLLOW-UP CONTEXT: our previous email was ${followUp.originalKind === "invite" ? "an interview invitation" : "a request for missing information"}, sent ${followUp.daysWaiting} day(s) ago. This is reminder number ${followUp.reminderNumber}.${followUp.hasSlots ? " Put the exact placeholder {{slots}} alone on its own line where the time options go, and ask them to reply with the option that suits them." : followUp.originalKind === "invite" ? " The earlier time options expired: ask the candidate to reply with their availability next week." : ""}` : "";
+  const prev = followUp ? `\n\nSUBJECT OF OUR PREVIOUS EMAIL: ${followUp.originalSubject}` : "";
   return callJSON(
     `You write professional, warm recruiting emails in English for a Tunisian company.
 Use ONLY facts from THIS candidate's file below. Do not invent facts. Address the candidate as {{candidate_name}} (a placeholder filled in later). Sign as "The Recruitment Team". Max 150 words. Format the body as a real email with line breaks: greeting line, 2-3 short paragraphs, sign-off.`,
-    `GOAL: ${KIND_GOAL[kind]}\nJOB: ${job.title}\n\nCANDIDATE FILE (with the screening notes, also untrusted):\n${wrap(`${candidate.anonymizedText}\n\nSCREENING NOTES: ${candidate.justification ?? "-"}\nMISSING INFO: ${candidate.missing.join(", ") || "-"}`)}`,
+    `GOAL: ${KIND_GOAL[kind]}${fu}\nJOB: ${job.title}\n\nCANDIDATE FILE (with the screening notes, also untrusted):\n${wrap(`${candidate.anonymizedText}\n\nSCREENING NOTES: ${candidate.justification ?? "-"}\nMISSING INFO: ${candidate.missing.join(", ") || "-"}${prev}`)}`,
     DraftSchema
   );
 }
