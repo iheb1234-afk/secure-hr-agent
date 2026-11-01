@@ -32,6 +32,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       { title: "Hiring", items: [
         { href: "/", label: "Candidates", icon: "people", count: flagged, tone: "block" },
         { href: "/approvals", label: "Approval queue", icon: "gate", count: pending, tone: "ai" },
+        { href: "/followups", label: "Follow-ups", icon: "bell" },
         { href: "/calendar", label: "Interviews", icon: "calendar" },
       ] },
       { title: "HR desk", items: [

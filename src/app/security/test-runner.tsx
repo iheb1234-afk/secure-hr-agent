@@ -1,4 +1,5 @@
 "use client";
+import { ATTACKS } from "@/lib/security/attack-suite";
 import { useState } from "react";
 
 type Case = { id: string; category: string; text: string; malicious: boolean; blocked: boolean; layer: string; pass: boolean };
@@ -22,7 +23,7 @@ export default function TestRunner() {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="section-title">Red-team test</h2>
         {res && <span className={`chip ${res.passed === res.total ? "bg-human-soft text-human" : "bg-block-soft text-block"}`}>{res.passed} of {res.total} passed</span>}
-        <button onClick={run} disabled={busy} className="btn btn-primary ml-auto">{busy ? "Attacking…" : "Run 15 attacks"}</button>
+        <button onClick={run} disabled={busy} className="btn btn-primary ml-auto">{busy ? "Attacking…" : `Run ${ATTACKS.length} tests`}</button>
       </div>
       <p className="mt-1 max-w-[80ch] text-sm text-ink-2">11 known attacks (English, French, invisible Unicode, look-alike letters) must be blocked. 4 normal resume sentences (accents, Arabic, Russian) must not be. Then one injection goes straight to the ranking AI, to prove the prompt holds even if every filter is bypassed.</p>
       {err && <p role="alert" className="mt-3 rounded-md bg-block-soft px-3 py-2 text-sm text-block">{err}</p>}

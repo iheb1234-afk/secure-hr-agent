@@ -2,13 +2,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { REJECT_REASONS, NOTE_MIN, needsNote } from "@/lib/decisions";
 
 type Job = { id: string; title: string; description: string; criteria: string[] };
 type Cand = {
   id: string; code: string; file_name: string; status: string; score: number | null; justification: string | null;
   matched_criteria: string[]; missing_criteria: string[]; injection_flag: boolean; injection_reasons: string[];
   hidden_text: string | null; anonymized_text: string;
+  decision_reason: string | null; decision_note: string | null;
 };
+type Decide = { id: string; action: "shortlist" | "reject"; reason: string; note: string; error?: string };
 
 // who acted last: amber = AI output waiting for a human, green = a human decided
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -29,6 +32,7 @@ export default function Dashboard() {
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [decide, setDecide] = useState<Decide | null>(null);
 
   const loadJobs = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").order("created_at");
@@ -92,12 +96,59 @@ export default function Dashboard() {
     setBusy("");
   }
 
-  async function act(id: string, action: string) {
+  async function act(id: string, action: string, extra: { reason?: string; note?: string } = {}) {
     setBusy(id);
-    const res = await fetch(`/api/candidates/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
-    const j = await res.json();
+    const res = await fetch(`/api/candidates/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...extra }) });
+    const j = await res.json().catch(() => ({}));
+    setBusy("");
+    if (!res.ok) {
+      // the server asks for a reason or a note: keep the panel open and show why
+      if (j.needsNote || j.needsReason) setDecide((d) => (d ? { ...d, error: j.error } : d));
+      else setMsg(j.error ?? "Error");
+      return;
+    }
+    setDecide(null);
     setMsg(j.warning ?? (action === "release" ? "Released for ranking (visible text only)." : "Decision saved. Draft reply waiting in the Approval queue."));
-    setBusy(""); loadCands(); router.refresh();
+    loadCands(); router.refresh();
+  }
+
+  // Reject always asks for a reason; shortlisting against the AI's score asks for a note
+  function start(c: Cand, action: "shortlist" | "reject") {
+    if (action === "shortlist" && !needsNote("shortlist", c.score)) return act(c.id, "shortlist");
+    setDecide({ id: c.id, action, reason: c.status === "flagged" ? "Manipulation attempt in the resume" : "", note: "" });
+  }
+
+  function decidePanel(c: Cand) {
+    if (decide?.id !== c.id) return null;
+    const d = decide;
+    const rule = needsNote(d.action, c.score, d.reason || undefined);
+    const ready = (d.action === "shortlist" || d.reason) && (!rule || d.note.trim().length >= NOTE_MIN);
+    return (
+      <div className="mt-3 space-y-2 rounded-md border bg-paper p-3 text-sm sm:ml-9">
+        {d.action === "reject" && (
+          <label className="block">
+            <span className="mb-1 block text-xs text-ink-3">Reason (recorded, never shown to the candidate)</span>
+            <select className="field" value={d.reason} onChange={(e) => setDecide({ ...d, reason: e.target.value, error: undefined })}>
+              <option value="">Pick a reason…</option>
+              {REJECT_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+        )}
+        {rule && <p className="text-xs font-medium text-ai">{rule}</p>}
+        <label className="block">
+          <span className="mb-1 block text-xs text-ink-3">{rule ? `Your note (required, ${NOTE_MIN}+ characters)` : "Internal note (optional)"}</span>
+          <textarea className="field h-16 resize-y" maxLength={500} value={d.note} onChange={(e) => setDecide({ ...d, note: e.target.value, error: undefined })} />
+        </label>
+        {d.error && <p role="alert" className="text-xs text-block">{d.error}</p>}
+        <div className="flex gap-2">
+          <button disabled={!ready || !!busy} onClick={() => act(c.id, d.action, { reason: d.reason || undefined, note: d.note.trim() || undefined })}
+            className={`btn btn-sm ${d.action === "reject" ? "btn-block" : "btn-approve"}`}>
+            {d.action === "reject" ? "Confirm rejection" : "Confirm shortlist"}
+          </button>
+          <button onClick={() => setDecide(null)} className="btn btn-sm btn-ghost">Cancel</button>
+        </div>
+      </div>
+    );
   }
 
   async function reset() {
@@ -113,6 +164,7 @@ export default function Dashboard() {
   const flagged = cands.filter((c) => c.status === "flagged");
   const ranked = cands.filter((c) => c.score !== null && c.status !== "flagged").sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const pending = cands.filter((c) => c.status === "new");
+  const closedUnranked = cands.filter((c) => c.status === "rejected" && c.score === null);
   const decided = cands.filter((c) => ["shortlisted", "rejected", "review"].includes(c.status)).length;
   const steps = [
     { n: cands.length, label: "Scanned for hidden text and manipulation" },
@@ -185,12 +237,13 @@ export default function Dashboard() {
                   <span className="truncate text-sm text-ink-3">{c.file_name}</span>
                   <div className="ml-auto flex gap-2">
                     <button onClick={() => act(c.id, "release")} disabled={!!busy} className="btn btn-sm btn-ghost">Release, rank visible text only</button>
-                    <button onClick={() => act(c.id, "reject")} disabled={!!busy} className="btn btn-sm btn-block">Reject</button>
+                    <button onClick={() => start(c, "reject")} disabled={!!busy} className="btn btn-sm btn-block">Reject</button>
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {c.injection_reasons.map((r, i) => <span key={i} className="chip bg-block-soft font-normal text-block">{r}</span>)}
                 </div>
+                {decidePanel(c)}
                 {c.hidden_text && (
                   <figure className="mt-3">
                     <figcaption className="mb-1 text-xs text-ink-3">Invisible on the page. Revealed by reading the PDF&apos;s drawing instructions:</figcaption>
@@ -245,10 +298,16 @@ export default function Dashboard() {
                     </button>
                     {c.status === "ranked" && (
                       <>
-                        <button onClick={() => act(c.id, "shortlist")} disabled={!!busy} className="btn btn-sm btn-approve">Shortlist</button>
+                        <button onClick={() => start(c, "shortlist")} disabled={!!busy} className="btn btn-sm btn-approve">Shortlist</button>
                         <button onClick={() => act(c.id, "review")} disabled={!!busy} className="btn btn-sm btn-ghost">Ask for info</button>
-                        <button onClick={() => act(c.id, "reject")} disabled={!!busy} className="btn btn-sm btn-ghost">Reject</button>
+                        <button onClick={() => start(c, "reject")} disabled={!!busy} className="btn btn-sm btn-ghost">Reject</button>
                       </>
+                    )}
+                    {(c.status === "review" || c.status === "shortlisted") && (
+                      <button onClick={() => start(c, "reject")} disabled={!!busy} className="btn btn-sm btn-ghost">Reject</button>
+                    )}
+                    {c.status === "rejected" && (
+                      <button onClick={() => act(c.id, "restore")} disabled={!!busy} className="btn btn-sm btn-ghost">Undo rejection</button>
                     )}
                   </div>
                 </div>
@@ -256,6 +315,9 @@ export default function Dashboard() {
                   <div className="h-full rounded-full bg-ink/70" style={{ width: `${c.score}%` }} />
                 </div>
                 <p className="ml-9 mt-2 max-w-[75ch] text-sm leading-relaxed text-ink-2">{c.justification}</p>
+                {c.decision_reason && <p className="ml-9 mt-1 text-xs text-ink-3">Your reason: {c.decision_reason}{c.decision_note ? `: ${c.decision_note}` : ""}</p>}
+                {!c.decision_reason && c.decision_note && <p className="ml-9 mt-1 text-xs text-ink-3">Your note: {c.decision_note}</p>}
+                {decidePanel(c)}
                 {open === c.id && (
                   <div className="ml-9 mt-3 grid gap-4 md:grid-cols-2">
                     <div>
@@ -277,6 +339,21 @@ export default function Dashboard() {
           })}
         </ul>
       </section>
+
+      {closedUnranked.length > 0 && (
+        <section className="panel overflow-hidden">
+          <h2 className="section-title border-b px-5 py-3">Rejected before ranking</h2>
+          <ul className="divide-y">
+            {closedUnranked.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm">
+                <b>{c.code}</b>
+                <span className="text-ink-3">{c.decision_reason ?? "Rejected"}{c.decision_note ? `: ${c.decision_note}` : ""}</span>
+                <button onClick={() => act(c.id, "restore")} disabled={!!busy} className="btn btn-sm btn-ghost ml-auto">Undo rejection</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

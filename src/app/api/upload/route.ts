@@ -3,7 +3,7 @@ import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { extractPdf } from "@/lib/security/pdf";
 import { scanRules } from "@/lib/security/injection";
 import { anonymize } from "@/lib/security/anonymize";
-import { classifyInjection } from "@/lib/ai/gemini";
+import { classifyInjection, isCanaryLeak, CANARY_REASON } from "@/lib/ai/gemini";
 import { rateLimit } from "@/lib/security/ratelimit";
 
 export const runtime = "nodejs";
@@ -56,9 +56,12 @@ export async function POST(req: Request) {
           const llm = await classifyInjection(`${visible}\n${hidden}`);
           if (llm.is_injection) reasons.push(`AI security filter: ${llm.reason}`);
         } catch (e) {
+          if (isCanaryLeak(e)) reasons.push(CANARY_REASON);
+          else {
           // fail CLOSED: if the AI security check can't run, a human reviews the CV before any ranking
           classifierNote = `AI security check unavailable: ${String(e).slice(0, 120)}`;
           reasons.push("AI security check unavailable: sent to human review (Release to rank it)");
+          }
         }
       }
       const flagged = reasons.length > 0;
