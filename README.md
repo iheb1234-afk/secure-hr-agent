@@ -43,7 +43,7 @@ Plus a **Security Lab** (live defense numbers, tests anyone can run, and an atta
 - No AI path can send a message or change a candidate's status. Only the approve endpoint, triggered by a human click, sends.
 - Decision state machine: a quarantined resume can only be released (ranked on visible text only) or rejected, and that rejection uses a fixed template, not the AI.
 - Every rejection records a reason from a fixed list, and can be undone. Going against the AI's score (shortlisting below 50, rejecting at 75 or more) requires a written note; the audit log records the override and the AI score, but not the note text (free text may hold personal data). This is the human oversight the EU AI Act asks for (Art. 14).
-- Append-only audit log of every AI output and human decision. The database refuses edits and deletes.
+- Append-only audit log of every AI output and human decision. A database trigger refuses every edit, delete or truncate, for everyone, including the server key and the project owner (`migration_07_audit_immutable.sql`).
 
 **Web app security**
 - Supabase Auth; every page and API route requires login (middleware). Public sign-up is disabled.
@@ -91,7 +91,7 @@ Browser (Next.js, read-only) ──► Middleware (auth) ──► API routes (r
 Next.js 15 (App Router, TypeScript, Tailwind CSS 4), Supabase (Postgres, Auth, Row Level Security), Google Gemini API, unpdf (pdf.js), Zod. Hosted on Vercel.
 
 ## Run locally
-1. **Supabase**: create a project. In the SQL editor run, in order: `supabase/schema.sql`, `migration_02_scheduling.sql`, `migration_03_inbox.sql`, `migration_04_employee_qa.sql`, `migration_05_lockdown.sql`, `migration_06_followups.sql`. Create users `recruiter@demo.tn` and `admin@demo.tn` (Auto Confirm), set their role in `profiles`, and disable public sign-ups.
+1. **Supabase**: create a project. In the SQL editor run, in order: `supabase/schema.sql`, `migration_02_scheduling.sql`, `migration_03_inbox.sql`, `migration_04_employee_qa.sql`, `migration_05_lockdown.sql`, `migration_06_followups.sql`, `migration_07_audit_immutable.sql`. Create users `recruiter@demo.tn` and `admin@demo.tn` (Auto Confirm), set their role in `profiles`, and disable public sign-ups.
 2. `cp .env.example .env.local` and fill in the keys. `SUPABASE_SERVICE_ROLE_KEY` is server-only: never prefix it with `NEXT_PUBLIC_`.
 3. `npm install && npm run dev`, then open http://localhost:3000.
 4. Log in, click "Create demo job offers", upload `dataset/resumes/*.pdf`, click "Rank".
