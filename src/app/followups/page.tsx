@@ -13,7 +13,7 @@ const STATE: Record<Row["state"], { label: string; cls: string }> = {
   due: { label: "Reminder due", cls: "bg-ai-soft text-ai ring-1 ring-ai/20" },
   pending_approval: { label: "Draft waiting for you", cls: "bg-ai-soft text-ai" },
   waiting: { label: "Too early", cls: "bg-wash text-ink-2" },
-  max_reached: { label: "2 reminders sent: call them", cls: "bg-block-soft text-block" },
+  max_reached: { label: "2 reminders sent: call them or close", cls: "bg-block-soft text-block" },
 };
 const WAITS = [{ d: 3, label: "3 days" }, { d: 7, label: "7 days" }, { d: 0, label: "Now (demo)" }];
 
@@ -33,7 +33,8 @@ export default function FollowUps() {
   }, [wait]);
   useEffect(() => { load(); }, [load]);
 
-  async function act(row: Row, action: "prepare" | "replied") {
+  async function act(row: Row, action: "prepare" | "replied" | "close_no_reply") {
+    if (action === "close_no_reply" && !confirm(`Close ${row.code} as "No reply"? No email is sent, and you can undo it from the Candidates page.`)) return;
     setBusy(row.candidateId);
     const r = await fetch("/api/followups", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -59,7 +60,7 @@ export default function FollowUps() {
         <h1 className="page-title">Candidate follow-ups</h1>
         <p className="page-lede">
           Candidates who received an invite or a request for information and have not answered. The list is computed by plain code, not by the AI.
-          The AI only drafts the reminder; it goes to the approval queue and leaves only when you approve it. Maximum 2 reminders per candidate.
+          The AI only drafts the reminder; it goes to the approval queue and leaves only when you approve it. Maximum 2 reminders per candidate; after that you call them, or close the application as &ldquo;No reply&rdquo; (no email, can be undone).
         </p>
       </header>
 
@@ -110,6 +111,9 @@ export default function FollowUps() {
                 )}
                 {r.state === "pending_approval" && <Link href="/approvals" className="btn btn-sm">Review draft</Link>}
                 <button onClick={() => act(r, "replied")} disabled={!!busy} className="btn btn-sm btn-ghost">They replied</button>
+                {r.remindersSent > 0 && r.state !== "pending_approval" && (
+                  <button onClick={() => act(r, "close_no_reply")} disabled={!!busy} className="btn btn-sm btn-ghost text-ink-3">Close: no reply</button>
+                )}
               </div>
             </div>
           ))}

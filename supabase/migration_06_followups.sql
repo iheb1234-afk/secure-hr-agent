@@ -16,3 +16,9 @@ create unique index if not exists drafts_one_pending_followup
 alter table public.candidates add column if not exists replied_at timestamptz;
 
 -- Table privileges from migration_05 still apply: the browser stays read-only on these columns.
+
+-- 5) Every rejection records WHY (a fixed reason + an optional note), and can be undone
+alter table public.candidates add column if not exists decision_reason text;
+alter table public.candidates add column if not exists decision_note text;      -- typed by the recruiter, kept out of the audit log
+alter table public.candidates add column if not exists previous_status text
+  check (previous_status is null or previous_status in ('new','flagged','ranked','shortlisted','review'));

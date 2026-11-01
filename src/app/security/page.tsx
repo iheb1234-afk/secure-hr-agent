@@ -36,6 +36,8 @@ export default async function Security() {
     { t: "Rule engine", d: "Known manipulation patterns, in English and French." },
     { t: "AI security classifier", d: "A separate model call that only answers: is this an attack? If it fails, the file is held, not passed." },
     { t: "Guarded prompt", d: "The resume is wrapped as untrusted data, only visible anonymized text is sent, and the output must match a strict schema." },
+    { t: "Canary token", d: "Every AI call hides a fresh secret code in its instructions. If the code ever appears in the answer, the input hijacked the model: the answer is thrown away and the file goes to quarantine." },
+    { t: "Output check", d: "Before an email leaves, code blocks leftover placeholders, hidden tracking images and links built to smuggle data out." },
     { t: "Human gate", d: "The AI cannot send or decide anything. Every step lands in the append-only audit log." },
   ];
   const max = Math.max(1, ...Object.values(byType));
@@ -58,7 +60,7 @@ export default async function Security() {
 
       <section className="grid gap-6 md:grid-cols-[1.15fr_1fr]">
         <div className="panel p-5">
-          <h2 className="section-title">Every resume passes six layers, in this order</h2>
+          <h2 className="section-title">Eight layers, in this order</h2>
           <ol className="mt-4 space-y-0">
             {layers.map((l, i) => (
               <li key={l.t} className="relative flex gap-3 pb-4 last:pb-0">

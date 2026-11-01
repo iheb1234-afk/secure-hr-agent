@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole, audit, HR } from "@/lib/supabase/server";
 import { withNotice } from "@/lib/email";
+import { scanOutgoingEmail } from "@/lib/security/output";
 
 const Body = z.object({
   action: z.enum(["approve", "discard"]),
@@ -40,6 +41,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (leftover) {
     await audit(ctx, "system", "draft.send_blocked_placeholder", "drafts", id, { code: d.candidates.code, placeholder: leftover[0] });
     return NextResponse.json({ error: `Not sent: the email still contains "${leftover[0]}". Edit it, then approve again.` }, { status: 422 });
+  }
+
+  // Output check: hidden images, data-carrying links, model control tokens (OWASP LLM05)
+  const bad = scanOutgoingEmail(`${finalSubject}\n${finalBody}`);
+  if (bad) {
+    await audit(ctx, "system", "draft.send_blocked_output", "drafts", id, { code: d.candidates.code, found: bad.label });
+    return NextResponse.json({ error: `Not sent: the email contains ${bad.label} ("${bad.match}"). Remove it, then approve again.` }, { status: 422 });
   }
 
   // only flips a draft that is STILL pending (two clicks at once can't send it twice)

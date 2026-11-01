@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole, audit, HR } from "@/lib/supabase/server";
-import { draftReply } from "@/lib/ai/gemini";
+import { draftReply, isCanaryLeak } from "@/lib/ai/gemini";
 import { listFollowUps } from "@/lib/followups";
 import { rateLimit } from "@/lib/security/ratelimit";
 import { formatEmail } from "@/lib/email";
@@ -25,12 +25,14 @@ export async function GET(req: Request) {
 
 const Body = z.object({
   candidateId: z.string().uuid(),
-  action: z.enum(["prepare", "replied"]),
+  action: z.enum(["prepare", "replied", "close_no_reply"]),
   days: z.number().int().min(0).max(30).optional(),
 });
 
 // "prepare" = the AI drafts a reminder into the approval queue. Nothing is sent here.
 // "replied" = the recruiter records that the candidate answered: reminders stop.
+// "close_no_reply" = after at least one reminder, the recruiter closes the application as "No reply"
+//                    (a rejection with that reason, no email, undoable from the Candidates page).
 export async function POST(req: Request) {
   const ctx = await requireRole(HR);
   if (ctx instanceof Response) return ctx;
@@ -46,6 +48,17 @@ export async function POST(req: Request) {
   if (action === "replied") {
     await ctx.sb.from("candidates").update({ replied_at: new Date().toISOString() }).eq("id", candidateId);
     await audit(ctx, "human", "candidate.replied", "candidates", candidateId, { code: row.code });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "close_no_reply") {
+    if (row.remindersSent < 1) return NextResponse.json({ error: "Send at least one reminder before closing as no reply." }, { status: 409 });
+    const { data: c } = await ctx.sb.from("candidates").select("status").eq("id", candidateId).single();
+    const now = new Date().toISOString();
+    await ctx.sb.from("candidates").update({ status: "rejected", decision_reason: "No reply", decision_note: null, previous_status: c?.status ?? null }).eq("id", candidateId);
+    await ctx.sb.from("drafts").update({ status: "discarded", decided_by: ctx.user.id, decided_at: now }).eq("candidate_id", candidateId).eq("status", "pending");
+    await ctx.sb.from("calendar_events").delete().eq("candidate_id", candidateId).eq("status", "proposed");
+    await audit(ctx, "human", "candidate.reject", "candidates", candidateId, { code: row.code, reason: "No reply", via: "follow-ups", reminders_sent: row.remindersSent, email: "none" });
     return NextResponse.json({ ok: true });
   }
 
@@ -88,6 +101,10 @@ export async function POST(req: Request) {
     await audit(ctx, "ai", "draft.created", "drafts", draft.id, { code: row.code, kind: "follow_up", reminder: row.remindersSent + 1 });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    if (isCanaryLeak(e)) {
+      await audit(ctx, "system", "draft.blocked_canary_leak", "candidates", candidateId, { code: row.code });
+      return NextResponse.json({ error: "Draft thrown away: the resume made the AI leak its secret instructions. Write this reminder yourself." }, { status: 422 });
+    }
     return NextResponse.json({ error: `Draft failed: ${String(e).slice(0, 100)}` }, { status: 502 });
   }
 }

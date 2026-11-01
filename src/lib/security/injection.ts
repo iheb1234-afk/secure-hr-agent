@@ -16,8 +16,14 @@ const PATTERNS: { re: RegExp; label: string }[] = [
   { re: /\b(ai|llm|gpt|chatbot)\s+(assistant|agent|bot|model|system)?\s*(reading|processing|analy[sz]ing|screening)\s+this/i, label: "Text addressed to the AI, not to a human" },
   { re: /<\/?(system|instructions?|resume|prompt|untrusted_document)>/i, label: "Tries to break out of the data delimiters" },
   { re: /\b(score|rating)\s*[:=]\s*100\b/i, label: "Asks for a specific ranking or score" },
+  // added after reading Vigil's YARA rules and Rebuff's heuristics
+  { re: /\b(forget|bypass|skip|overlook|override|neglect|do not follow|pay no attention to)\s+(all\s+)?(of\s+)?(the\s+|your\s+|any\s+)?(previous\s+|prior\s+|above\s+|earlier\s+|initial\s+|system\s+)?(instructions?|directives?|prompts?|rules|guidelines|criteria)\b/i, label: "Tries to override the AI's instructions" },
+  { re: /<\|(im_start|im_end|system|user|assistant|endoftext)\|>|\[\/?INST\]|<<\/?SYS>>/i, label: "Fake chat-model control tokens" },
+  { re: /\b(reveal|print|repeat|output|show|display)\s+(me\s+)?(all\s+)?(of\s+)?(your|the)\s+(system\s+|hidden\s+|initial\s+)?(prompt|instructions|rules)\b|\brepeat\s+(all\s+)?(of\s+)?(the\s+)?text\s+above/i, label: "Tries to extract the AI's instructions" },
+  { re: /!\[[^\]]{0,80}\]\(\s*https?:\/\//i, label: "Hidden image link (data exfiltration trick)" },
   // French (Tunisian CVs are often in French)
   { re: /ignore[rz]?\s+(toutes\s+)?(les\s+)?instructions\s+(précédentes|precedentes|ci-dessus)/i, label: "Tries to override the AI's instructions (FR)" },
+  { re: /oublie[rz]?\s+(toutes\s+)?(les\s+|tes\s+|vos\s+)?(instructions|consignes|règles|regles)/i, label: "Tries to override the AI's instructions (FR)" },
   { re: /(classe[rz]?|note[rz]?)\s+(ce|cette|moi)\s+(candidat|candidate|cv)?\s*(en\s+)?(premier|première|premiere|100|maximum)/i, label: "Asks for a specific ranking or score (FR)" },
   { re: /\bsi\s+(tu\s+es|vous\s+êtes|vous\s+etes)\s+(une?\s+)?(ia|intelligence artificielle|bot|robot)/i, label: "Text addressed to the AI, not to a human (FR)" },
 ];

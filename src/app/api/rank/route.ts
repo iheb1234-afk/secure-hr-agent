@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRole, audit, HR } from "@/lib/supabase/server";
-import { rankResume } from "@/lib/ai/gemini";
+import { rankResume, isCanaryLeak, CANARY_REASON } from "@/lib/ai/gemini";
 import { rateLimit } from "@/lib/security/ratelimit";
 
 export const runtime = "nodejs";
@@ -38,6 +38,12 @@ export async function POST(req: Request) {
         ranked++;
         if (queue.length) await new Promise((r) => setTimeout(r, 4200));
       } catch (e) {
+        if (isCanaryLeak(e)) {
+          // the resume hijacked the ranking model: quarantine it, nothing it produced is kept
+          await ctx.sb.from("candidates").update({ status: "flagged", injection_flag: true, injection_reasons: [CANARY_REASON] }).eq("id", c.id);
+          await audit(ctx, "system", "resume.flagged_canary_leak", "candidates", c.id, { code: c.code });
+          continue;
+        }
         errors.push(`${c.code}: ${e instanceof Error ? e.message.slice(0, 120) : "error"}`);
       }
     }
